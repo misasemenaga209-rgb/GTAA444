@@ -217,13 +217,14 @@ class CharacterController {
     this.group = new THREE.Group();
     this.group.name = 'PlayerCharacter';
 
-    this.position = new THREE.Vector3(0, 0, 0);
+    // Спавн в центре Городни на открытом тротуаре возле супермаркета АТБ (без коллизий)
+    this.position = new THREE.Vector3(0, 0.1, -120);
     this.velocity = new THREE.Vector3(0, 0, 0);
     this.heading = 0;
-    this.walkSpeed = 4.2;
-    this.sprintSpeed = 8.5;
-    this.jumpForce = 9.8;
-    this.gravity = -24.0;
+    this.walkSpeed = 5.2;
+    this.sprintSpeed = 10.5;
+    this.jumpForce = 8.5;
+    this.gravity = -22.0;
     this.isGrounded = true;
     this.inVehicle = null;
 
@@ -237,6 +238,7 @@ class CharacterController {
 
     this.buildCharacterMesh();
     this.scene.add(this.group);
+    this.group.position.copy(this.position);
   }
 
   buildCharacterMesh() {
@@ -270,7 +272,7 @@ class CharacterController {
     this.head.add(visorMesh);
     this.torso.add(this.head);
 
-    // Руки (Плечи + Предплечья + Кисти)
+    // Руки
     this.leftArm = new THREE.Group();
     this.leftArm.position.set(-0.35, 1.5, 0);
     const lUpperArm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.38, 0.15), matHoodie);
@@ -292,7 +294,7 @@ class CharacterController {
     this.rightArm.add(rHand);
     this.torso.add(this.rightArm);
 
-    // Ноги (Бедра + Голени + Кроссовки)
+    // Ноги
     this.leftLeg = new THREE.Group();
     this.leftLeg.position.set(-0.16, 0.9, 0);
     const lLegMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.65, 0.2), matPants);
@@ -342,7 +344,7 @@ class CharacterController {
       let diff = targetHeading - this.heading;
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
-      this.heading += diff * Math.min(1.0, delta * 12);
+      this.heading += diff * Math.min(1.0, delta * 14);
       this.group.rotation.y = this.heading;
 
       this.velocity.x = moveVector.x * currentSpeed;
@@ -372,39 +374,80 @@ class CharacterController {
     if (input.jump && this.isGrounded) {
       this.velocity.y = this.jumpForce;
       this.isGrounded = false;
+      this.sound.playFootstep('jump');
     }
 
     this.velocity.y += this.gravity * delta;
 
-    const nextPos = this.position.clone();
-    nextPos.x += this.velocity.x * delta;
-    nextPos.z += this.velocity.z * delta;
-    nextPos.y += this.velocity.y * delta;
+    const pRadius = 0.35;
+    const pHeight = 1.8;
 
-    if (nextPos.y <= 0) {
-      nextPos.y = 0;
-      this.velocity.y = 0;
-      this.isGrounded = true;
-    }
-
-    const pRadius = 0.4;
-    const pBox = new THREE.Box3(
-      new THREE.Vector3(nextPos.x - pRadius, nextPos.y, nextPos.z - pRadius),
-      new THREE.Vector3(nextPos.x + pRadius, nextPos.y + 1.8, nextPos.z + pRadius)
-    );
-
-    let hit = false;
-    if (collisionBoxes) {
+    // 1. Депенетрация: предотвращение застревания персонажа в любых препятствиях
+    if (collisionBoxes && collisionBoxes.length > 0) {
       for (let i = 0; i < collisionBoxes.length; i++) {
-        if (pBox.intersectsBox(collisionBoxes[i])) {
-          hit = true;
-          break;
+        const box = collisionBoxes[i];
+        if (this.position.y + pHeight > box.min.y && this.position.y < box.max.y) {
+          if (this.position.x + pRadius > box.min.x && this.position.x - pRadius < box.max.x &&
+              this.position.z + pRadius > box.min.z && this.position.z - pRadius < box.max.z) {
+            const penLeft = (this.position.x + pRadius) - box.min.x;
+            const penRight = box.max.x - (this.position.x - pRadius);
+            const penBack = (this.position.z + pRadius) - box.min.z;
+            const penFront = box.max.z - (this.position.z - pRadius);
+            const minPen = Math.min(penLeft, penRight, penBack, penFront);
+            if (minPen === penLeft) this.position.x = box.min.x - pRadius - 0.03;
+            else if (minPen === penRight) this.position.x = box.max.x + pRadius + 0.03;
+            else if (minPen === penBack) this.position.z = box.min.z - pRadius - 0.03;
+            else if (minPen === penFront) this.position.z = box.max.z + pRadius + 0.03;
+          }
         }
       }
     }
 
-    if (!hit) this.position.copy(nextPos);
-    else this.position.y = nextPos.y;
+    // 2. Раздельная проверка коллизий по X (скольжение вдоль стен и заборов)
+    const newX = this.position.x + this.velocity.x * delta;
+    let hitX = false;
+    const boxX = new THREE.Box3(
+      new THREE.Vector3(newX - pRadius, this.position.y + 0.1, this.position.z - pRadius),
+      new THREE.Vector3(newX + pRadius, this.position.y + pHeight, this.position.z + pRadius)
+    );
+    if (collisionBoxes) {
+      for (let i = 0; i < collisionBoxes.length; i++) {
+        if (boxX.intersectsBox(collisionBoxes[i])) {
+          hitX = true;
+          break;
+        }
+      }
+    }
+    if (!hitX) {
+      this.position.x = newX;
+    }
+
+    // 3. Раздельная проверка коллизий по Z (скольжение)
+    const newZ = this.position.z + this.velocity.z * delta;
+    let hitZ = false;
+    const boxZ = new THREE.Box3(
+      new THREE.Vector3(this.position.x - pRadius, this.position.y + 0.1, newZ - pRadius),
+      new THREE.Vector3(this.position.x + pRadius, this.position.y + pHeight, newZ + pRadius)
+    );
+    if (collisionBoxes) {
+      for (let i = 0; i < collisionBoxes.length; i++) {
+        if (boxZ.intersectsBox(collisionBoxes[i])) {
+          hitZ = true;
+          break;
+        }
+      }
+    }
+    if (!hitZ) {
+      this.position.z = newZ;
+    }
+
+    // 4. Прижатие к уровню земли
+    this.position.y += this.velocity.y * delta;
+    if (this.position.y <= 0) {
+      this.position.y = 0;
+      this.velocity.y = 0;
+      this.isGrounded = true;
+    }
 
     this.group.position.copy(this.position);
 
