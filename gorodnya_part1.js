@@ -145,6 +145,7 @@ class GorodnyaPart1World {
     this.scene = scene;
     this.collisionBoxes = [];
     this.vehicles = [];
+    this.roadsList = [];
 
     // 1. Природный ландшафт, реки, озера и окраинные поля
     this.buildTerrainAndWaters();
@@ -166,6 +167,7 @@ class GorodnyaPart1World {
 
     // 5. Окружающие лесные массивы (4000+ сосен на InstancedMesh), Дендропарк и посадки
     this.buildForestsAndDendropark();
+    this.spawnFleet();
   }
 
   // --- 1. ПРИРОДНЫЕ ЗОНЫ, ВОДОЕМЫ И ПОЛЯ НА ГОРИЗОНТЕ ---
@@ -246,6 +248,7 @@ class GorodnyaPart1World {
       road.position.set(x, 0.06, z);
       road.receiveShadow = true;
       this.scene.add(road);
+      this.roadsList.push(road);
 
       // Бордюры для асфальтированных дорог
       if (!isDirt && width >= 12) {
@@ -733,9 +736,42 @@ class GorodnyaPart1World {
 
     console.log(`[Zero-Void Forests] Розсаджено ${treeIdx} сосен та дерев лісових масивів Городні`);
   }
+  spawnFleet() {
+    if (typeof VehicleFactory === 'undefined') return;
+    if (this.vehicles.length > 0) return;
+
+    const vaz = VehicleFactory.createVAZ2101();
+    vaz.position.set(-185, 0, 15);
+    this.scene.add(vaz);
+    this.vehicles.push({ mesh: vaz, type: 'vaz' });
+
+    const lanos = VehicleFactory.createDaewooLanos();
+    lanos.position.set(16, 0, -170);
+    this.scene.add(lanos);
+    this.vehicles.push({ mesh: lanos, type: 'lanos' });
+
+    const npVan = VehicleFactory.createNovaPoshtaVan();
+    npVan.position.set(-165, 0, -135);
+    this.scene.add(npVan);
+    this.vehicles.push({ mesh: npVan, type: 'np' });
+
+    const bus = VehicleFactory.createGorodnyaBus();
+    bus.position.set(-14, 0, 30);
+    this.scene.add(bus);
+    this.vehicles.push({ mesh: bus, type: 'bus' });
+
+    const drag = VehicleFactory.createDragCoupe();
+    drag.position.set(340, 0, -220);
+    this.scene.add(drag);
+    this.vehicles.push({ mesh: drag, type: 'drag' });
+
+    const police = VehicleFactory.createPoliceCar();
+    police.position.set(-18, 0, -45);
+    this.scene.add(police);
+    this.vehicles.push({ mesh: police, type: 'police' });
+  }
 }
 
-// Экспорт для подключения во все части игры
 window.GorodnyaWorldPart1 = GorodnyaPart1World;
 window.ProceduralPBRFactory = ProceduralPBRFactory;
 console.log('✅ [GorodnyaPart1World] Повний генератор нульової пустоти (Zero-Void) завантажено!');
