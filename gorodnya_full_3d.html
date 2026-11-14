@@ -428,6 +428,7 @@
   <script src="gorodnya_part3.js"></script>
   <script src="gorodnya_part4.js"></script>
   <script src="gorodnya_part5.js"></script>
+  <script src="dev_free_camera.js"></script>
 
   <!-- КАРТА ГОРОДНИ И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ С ПОЛНОЙ ОПТИМИЗАЦИЕЙ -->
   <script>
@@ -663,6 +664,7 @@
 
       initSystems() {
         this.sound = new SoundEngine();
+        this.devCam = new DevFreeCamera(this.camera, this.renderer.domElement);
 
         // Часть 4: Ультра-текстуры и декали
         this.textureEngine = new UltraTextureEngine(this.renderer);
@@ -798,6 +800,13 @@
           // Облет камеры в главном меню
           if (this.mainMenu.inMenu) {
             this.mainMenu.updateCameraFlyover(delta, this.camera);
+            this.renderer.render(this.scene, this.camera);
+            return;
+          }
+
+          // Режим свободной камеры разработчика (FreeCamera Mode)
+          if (this.devCam && this.devCam.isActive) {
+            this.devCam.update(delta);
             this.renderer.render(this.scene, this.camera);
             return;
           }
