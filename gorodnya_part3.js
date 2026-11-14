@@ -1062,3 +1062,15 @@ window.CombatAndEasterEggSystem = CombatAndEasterEggSystem;
 window.DynamicWeatherSystem = DynamicWeatherSystem;
 window.GTASmartphone = GTASmartphone;
 window.GorodnyaPart3Extension = GorodnyaPart3Extension;
+
+class GameBootstrap {
+  static initAll(app) {
+    app.interiors = new InteriorSystem(app.scene, app.cityMap.collisionBoxes);
+    app.tuning = new TuningSystem(app.sound);
+    app.combat = new CombatAndEasterEggSystem(app.scene, app.sound);
+    app.weather = new DynamicWeatherSystem(app.scene, app.sound);
+    app.phone = new GTASmartphone(app);
+    console.log('✅ [GameBootstrap] Усі системи Частин 1, 2 та 3 успішно інтегровані в єдине ядро Городні!');
+  }
+}
+window.GameBootstrap = GameBootstrap;
