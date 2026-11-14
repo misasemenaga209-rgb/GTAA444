@@ -451,68 +451,32 @@ class UltraTextureEngine {
 
   // --- 4. ПСЕВДО-ИНТЕРЬЕРЫ В ОКНАХ (PARALLAX WINDOW MATERIAL) ---
   createParallaxWindowMaterial(interiorType = 'atb') {
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x101a26,
-      roughness: 0.08,
-      metalness: 0.88,
-      envMapIntensity: 2.2
-    });
-
     const atlas = this.createCanvasTexture(256, 256, (ctx, w, h) => {
       if (interiorType === 'atb') {
         ctx.fillStyle = '#092540'; ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#00d2d3'; ctx.fillRect(20, 130, 216, 8); // LED-полоса полок
+        ctx.fillStyle = '#00d2d3'; ctx.fillRect(20, 130, 216, 8); // LED-полоса полок АТБ
         ctx.fillStyle = '#fffae6'; ctx.beginPath(); ctx.arc(128, 50, 25, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#e74c3c'; ctx.fillRect(40, 160, 60, 40); // Продуктовые корзинки
+        ctx.fillStyle = '#3498db'; ctx.fillRect(150, 160, 60, 40);
       } else if (interiorType === 'avrora') {
         ctx.fillStyle = '#3a1210'; ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = '#fbc531'; ctx.fillRect(20, 120, 216, 12);
         ctx.fillStyle = '#eb4d4b'; ctx.fillRect(20, 170, 216, 12);
       } else {
-        // Жилой уютный дом (люстра, занавески)
+        // Жилой уютный дом
         ctx.fillStyle = '#261c14'; ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = '#f39c12'; ctx.beginPath(); ctx.arc(128, 65, 30, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#dcdde1'; ctx.fillRect(10, 0, 30, h); ctx.fillRect(w - 40, 0, 30, h); // Занавески
+        ctx.fillStyle = '#dcdde1'; ctx.fillRect(10, 0, 30, h); ctx.fillRect(w - 40, 0, 30, h);
       }
     });
 
-    mat.map = atlas;
-    mat.onBeforeCompile = (shader) => {
-      shader.uniforms.uInteriorAtlas = { value: atlas };
-
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <common>',
-        `#include <common>
-         #ifndef USE_UV
-         varying vec2 vUv;
-         #endif`
-      );
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <uv_vertex>',
-        `#include <uv_vertex>
-         #ifndef USE_UV
-         vUv = uv;
-         #endif`
-      );
-
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <common>',
-        `#include <common>
-         #ifndef USE_UV
-         varying vec2 vUv;
-         #endif
-         uniform sampler2D uInteriorAtlas;`
-      );
-
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-         vec3 viewDir = normalize(vViewPosition);
-         vec2 parallaxOffset = viewDir.xy * 0.18;
-         vec4 interiorColor = texture2D(uInteriorAtlas, vUv + parallaxOffset);
-         diffuseColor.rgb = mix(diffuseColor.rgb, interiorColor.rgb, 0.48);
-        `
-      );
-    };
+    const mat = new THREE.MeshStandardMaterial({
+      map: atlas,
+      roughness: 0.15,
+      metalness: 0.75,
+      emissive: new THREE.Color(0x38bdf8),
+      emissiveIntensity: 0.35
+    });
 
     return mat;
   }
