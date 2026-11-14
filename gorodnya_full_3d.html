@@ -20,7 +20,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #0b0f19;
+      background-color: #7ec0ee;
       font-family: 'Ubuntu', sans-serif;
       color: #fff;
     }
@@ -424,6 +424,7 @@
   </div>
 
   <!-- ПОДКЛЮЧЕНИЕ ВСЕХ МОДУЛЕЙ ГОРОДНИ (ЧАСТИ 2, 3, 4 И 5) -->
+  <script src="gorodnya_part1.js"></script>
   <script src="gorodnya_part2.js"></script>
   <script src="gorodnya_part3.js"></script>
   <script src="gorodnya_part4.js"></script>
@@ -637,23 +638,38 @@
 
       initThree() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0b0f19);
-        this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.0022);
+        // Яскраве денне небо над Городнею та легкий прозорий серпанок без чорної порожнечі
+        this.scene.background = new THREE.Color(0x7ec0ee);
+        this.scene.fog = new THREE.FogExp2(0x7ec0ee, 0.0006);
 
-        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 1800);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 2800);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.container.appendChild(this.renderer.domElement);
 
-        const sun = new THREE.DirectionalLight(0xfffaed, 1.4);
-        sun.position.set(150, 220, 100);
+        // Тепле сонячне освітлення полудня
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.45);
+        sun.position.set(250, 350, 180);
         sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 0.5;
+        sun.shadow.camera.far = 1200;
+        sun.shadow.camera.left = -400;
+        sun.shadow.camera.right = 400;
+        sun.shadow.camera.top = 400;
+        sun.shadow.camera.bottom = -400;
         this.scene.add(sun);
 
-        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x1e293b, 0.65);
+        // Природне розсіяне світло (блакить неба + тепле відбиття трави)
+        const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x3d5a35, 0.85);
         this.scene.add(hemiLight);
+
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.35);
+        this.scene.add(ambLight);
 
         window.addEventListener('resize', () => {
           this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -668,10 +684,15 @@
 
         // Часть 4: Ультра-текстуры и декали
         this.textureEngine = new UltraTextureEngine(this.renderer);
-        this.cityMap = new GorodnyaCityMap(this.scene, this.textureEngine);
+
+        // Часть 1: Полный мир Городни по правилу «Нулевой пустоты» (Zero-Void 3200x3200м, 75+ кварталов, 450+ домов)
+        this.cityMap = new GorodnyaPart1World(this.scene);
+        if (this.cityMap.vehicles.length === 0 && this.cityMap.spawnFleet) {
+          this.cityMap.spawnFleet();
+        }
         this.decalScatter = new DecalScatterSystem(this.scene, this.textureEngine);
 
-        // Часть 1 и 2: Игрок, Камера, AI, Физика
+        // Часть 2: Игрок, Камера, AI, Физика
         this.particles = new ParticleSystem3D(this.scene);
         this.player = new CharacterController(this.scene, this.sound);
         this.tpCamera = new ThirdPersonCamera(this.camera, this.renderer.domElement);
@@ -693,61 +714,86 @@
       }
 
       setupInputListeners() {
-        window.addEventListener('keydown', e => {
+        const handleKey = (e, isDown) => {
           const k = e.key.toLowerCase();
-          if (k === 'w' || e.key === 'ArrowUp') this.input.forward = true;
-          if (k === 's' || e.key === 'ArrowDown') this.input.backward = true;
-          if (k === 'a' || e.key === 'ArrowLeft') this.input.left = true;
-          if (k === 'd' || e.key === 'ArrowRight') this.input.right = true;
-          if (e.key === 'Shift') this.input.sprint = true;
-          if (e.key === ' ') {
-            this.input.jump = true;
-            this.input.handbrake = true;
+          const c = e.code;
+
+          // Вперед (W, Up, Ц)
+          if (c === 'KeyW' || k === 'w' || k === 'ц' || e.key === 'ArrowUp') {
+            this.input.forward = isDown;
+          }
+          // Назад (S, Down, Ы, І)
+          if (c === 'KeyS' || k === 's' || k === 'ы' || k === 'і' || e.key === 'ArrowDown') {
+            this.input.backward = isDown;
+          }
+          // Влево (A, Left, Ф)
+          if (c === 'KeyA' || k === 'a' || k === 'ф' || e.key === 'ArrowLeft') {
+            this.input.left = isDown;
+          }
+          // Вправо (D, Right, В)
+          if (c === 'KeyD' || k === 'd' || k === 'в' || e.key === 'ArrowRight') {
+            this.input.right = isDown;
+          }
+          // Спринт (Shift)
+          if (c === 'ShiftLeft' || c === 'ShiftRight' || e.key === 'Shift') {
+            this.input.sprint = isDown;
+          }
+          // Прыжок / Ручной тормоз (Space)
+          if (c === 'Space' || e.key === ' ') {
+            this.input.jump = isDown;
+            this.input.handbrake = isDown;
           }
 
-          if (k === 'f' || k === 'e') {
+          // Автостарт игры при нажатии клавиш движения в меню
+          if (isDown && this.mainMenu && this.mainMenu.inMenu) {
+            if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'Enter'].includes(c) || ['w', 'a', 's', 'd', 'ц', 'ф', 'ы', 'в', ' '].includes(k)) {
+              const btn = document.getElementById('btn-menu-new');
+              if (btn) btn.click();
+            }
+          }
+        };
+
+        window.addEventListener('keydown', e => {
+          handleKey(e, true);
+          const k = e.key.toLowerCase();
+          const c = e.code;
+
+          // Посадка/высадка из авто (F / E / А / У)
+          if (c === 'KeyF' || k === 'f' || k === 'а' || c === 'KeyE' || k === 'e' || k === 'у') {
             this.toggleVehicleInteraction();
-            // Проверка рыбалки
-            if (!this.player.inVehicle) this.sideActivities.interactFishing(this.player);
-            // Проверка подработки Новой Почты у отделения №2
-            if (this.player.position.distanceTo(new THREE.Vector3(-180, 0, -140)) < 12) {
-              this.sideActivities.startCourierJob(this.player);
+            if (!this.player.inVehicle && this.sideActivities) {
+              this.sideActivities.interactFishing(this.player);
+              if (this.player.position.distanceTo(new THREE.Vector3(-180, 0, -140)) < 16) {
+                this.sideActivities.startCourierJob(this.player);
+              }
             }
           }
 
-          // Радио в машине на R
-          if (k === 'r' && this.player.inVehicle) {
+          // Радио в авто (R / К)
+          if ((c === 'KeyR' || k === 'r' || k === 'к') && this.player.inVehicle && this.radio) {
             this.radio.toggleStation();
           }
 
-          // Режим Такси на T
-          if (k === 't') {
+          // Режим Такси (T / Е)
+          if ((c === 'KeyT' || k === 't') && this.sideActivities) {
             this.sideActivities.toggleTaxiMode(this.player);
           }
 
           // Выбор оружия 1-4
-          if (['1', '2', '3', '4'].includes(e.key)) {
+          if (['1', '2', '3', '4'].includes(e.key) && this.combat) {
             this.combat.selectWeapon(parseInt(e.key), this.player.group);
             const wNames = { 1: '👊 КУЛАКИ', 2: '🏏 БИТА', 3: '🔫 ПІСТОЛЕТ', 4: '💥 АК-47' };
-            document.getElementById('hud-weapon').innerText = wNames[e.key];
+            const el = document.getElementById('hud-weapon');
+            if (el) el.innerText = wNames[e.key];
           }
         });
 
         window.addEventListener('keyup', e => {
-          const k = e.key.toLowerCase();
-          if (k === 'w' || e.key === 'ArrowUp') this.input.forward = false;
-          if (k === 's' || e.key === 'ArrowDown') this.input.backward = false;
-          if (k === 'a' || e.key === 'ArrowLeft') this.input.left = false;
-          if (k === 'd' || e.key === 'ArrowRight') this.input.right = false;
-          if (e.key === 'Shift') this.input.sprint = false;
-          if (e.key === ' ') {
-            this.input.jump = false;
-            this.input.handbrake = false;
-          }
+          handleKey(e, false);
         });
 
         window.addEventListener('mousedown', e => {
-          if (e.button === 0 && !this.player.inVehicle && !this.mainMenu.inMenu) {
+          if (e.button === 0 && !this.player.inVehicle && (!this.mainMenu || !this.mainMenu.inMenu) && this.combat) {
             this.combat.attack(this.player, this.camera, this.particles, this.aiCity);
           }
         });
