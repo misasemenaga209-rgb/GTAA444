@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GTAA444 - Cloud Vice City</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top Left: Wanted Stars & Cash -->
+    <div id="hud-top-left">
+      <div id="cash-display">$00000500</div>
+      <div id="wanted-stars">
+        <span class="star" data-index="1">★</span>
+        <span class="star" data-index="2">★</span>
+        <span class="star" data-index="3">★</span>
+        <span class="star" data-index="4">★</span>
+        <span class="star" data-index="5">★</span>
+      </div>
+      <div id="weapon-display">
+        <span id="weapon-icon">🔫</span>
+        <span id="weapon-name">PISTOL</span>
+        <span id="ammo-count">∞</span>
+      </div>
+    </div>
+
+    <!-- Top Right: Health, Armor & Time -->
+    <div id="hud-top-right">
+      <div class="bar-container">
+        <span class="bar-label">HP</span>
+        <div class="bar-bg"><div id="health-bar" style="width: 100%;"></div></div>
+      </div>
+      <div class="bar-container">
+        <span class="bar-label">ARM</span>
+        <div class="bar-bg"><div id="armor-bar" style="width: 50%;"></div></div>
+      </div>
+      <div id="city-time">12:00 PM</div>
+    </div>
+
+    <!-- Bottom Left: Vehicle Dashboard (Speedometer & Vehicle Health) -->
+    <div id="hud-bottom-left" class="hidden">
+      <div class="dash-title">VEHICLE: <span id="vehicle-name">SPORTS GT</span></div>
+      <div class="speedometer-box">
+        <span id="speed-value">0</span> <span class="unit">KM/H</span>
+      </div>
+      <div class="bar-container">
+        <span class="bar-label">CAR</span>
+        <div class="bar-bg"><div id="car-health-bar" style="width: 100%;"></div></div>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Radar / Minimap -->
+    <div id="hud-bottom-right">
+      <canvas id="radar-canvas" width="160" height="160"></canvas>
+    </div>
+
+    <!-- Interaction Prompt (e.g. "Press [F] to enter car") -->
+    <div id="interaction-prompt" class="hidden">
+      Нажмите <kbd>F</kbd> чтобы сесть в машину
+    </div>
+
+    <!-- Controls Overlay / Help Screen -->
+    <div id="help-overlay">
+      <div class="help-card">
+        <h1>GTAA444</h1>
+        <p class="subtitle">Cloud Edition • GitHub Codespaces</p>
+        <div class="controls-grid">
+          <div class="ctrl-row"><span>Пешком:</span> <b>W, A, S, D</b> или Стрелки</div>
+          <div class="ctrl-row"><span>Прицел:</span> <b>Мышь</b> (поворот персонажа)</div>
+          <div class="ctrl-row"><span>Стрельба:</span> <b>Левая кнопка мыши</b> / Пробел</div>
+          <div class="ctrl-row"><span>Сесть/Выйти из авто:</span> <b>F</b> или <b>Enter</b></div>
+          <div class="ctrl-row"><span>Управление авто:</span> <b>W</b> (газ), <b>S</b> (тормоз/назад), <b>A/D</b> (руль)</div>
+          <div class="ctrl-row"><span>Ручник / Дрифт:</span> <b>Shift</b> или <b>Space</b></div>
+          <div class="ctrl-row"><span>Сменить оружие:</span> <b>1</b> (Кулаки), <b>2</b> (Пистолет), <b>3</b> (Узи)</div>
+          <div class="ctrl-row"><span>Сигнал в машине:</span> <b>H</b></div>
+          <div class="ctrl-row"><span>Починка / Сброс:</span> <b>R</b></div>
+        </div>
+        <button id="start-btn">ИГРАТЬ (START)</button>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="hidden">
+      <h1 class="wasted">WASTED</h1>
+      <p id="game-over-sub">ВЫ ПОГИБЛИ</p>
+      <button id="respawn-btn">ВОЗРОДИТЬСЯ (R)</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
