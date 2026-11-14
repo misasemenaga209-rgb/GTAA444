@@ -18,15 +18,393 @@
 // 1. ПРОЦЕДУРНЫЙ ГЕНЕРАТОР PBR-МАТЕРИАЛОВ И ТЕКСТУР В ПАМЯТИ
 // =============================================================================
 class ProceduralPBRFactory {
-  static createTexture(width, height, drawFn) {
+  static getAnisotropy() {
+    if (typeof window !== 'undefined' && window.gameApp && window.gameApp.renderer && window.gameApp.renderer.capabilities) {
+      return window.gameApp.renderer.capabilities.getMaxAnisotropy();
+    }
+    return 16;
+  }
+
+  static createTexture(width, height, drawFn, wrapX = THREE.RepeatWrapping, wrapY = THREE.RepeatWrapping) {
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     drawFn(ctx, width, height);
     const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.RepeatWrapping;
+    tex.wrapS = wrapX;
+    tex.wrapT = wrapY;
+    tex.anisotropy = this.getAnisotropy();
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = true;
+    tex.needsUpdate = true;
     return tex;
+  }
+
+  // --- 1. ТЕМНЫЙ МАТОВЫЙ АСФАЛЬТ ДОРОГ ГОРОДНИ (Шевченко, Черниговская) С BUMP MAP ---
+  static createRoadMaterial(width = 18, length = 1000, isMainStreet = true) {
+    const repX = Math.max(1, Math.round(width / 3.5));
+    const repY = Math.max(1, Math.round(length / 3.5));
+
+    // Diffuse: угольно-битумный асфальт, микро-щебень и смоляные заплатки
+    const diffuse = this.createTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#16191c';
+      ctx.fillRect(0, 0, w, h);
+
+      // Вкрапления мелкого серого и светлого гравия
+      for (let i = 0; i < 4500; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const r = 0.5 + Math.random() * 2.2;
+        const shade = Math.floor(35 + Math.random() * 65);
+        ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+        ctx.fillRect(x, y, r, r);
+      }
+
+      // Битумные заплатки темной смолы
+      ctx.fillStyle = '#0c0e10';
+      for (let i = 0; i < 16; i++) {
+        const px = Math.random() * w;
+        const py = Math.random() * h;
+        const pw = 25 + Math.random() * 45;
+        const ph = 12 + Math.random() * 25;
+        ctx.beginPath();
+        ctx.ellipse(px, py, pw, ph, Math.random() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Тонкие трещины в полотне
+      ctx.strokeStyle = '#090a0c';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        let cx = Math.random() * w;
+        let cy = Math.random() * h;
+        ctx.moveTo(cx, cy);
+        for (let s = 0; s < 5; s++) {
+          cx += (Math.random() - 0.5) * 35;
+          cy += (Math.random() - 0.5) * 35;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+
+      // Желтая осевая линия на центральных магистралях
+      if (isMainStreet) {
+        ctx.fillStyle = '#f1c40f';
+        const mw = 14;
+        const dashLen = 140;
+        const gapLen = 110;
+        const centerX = w / 2 - mw / 2;
+        for (let y = 0; y < h; y += (dashLen + gapLen)) {
+          ctx.fillRect(centerX, y, mw, dashLen);
+        }
+      }
+    });
+    diffuse.repeat.set(repX, repY);
+
+    // Bump Map: микрорельеф камешков и бороздки трещин
+    const bump = this.createTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 4500; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const r = 0.5 + Math.random() * 2.2;
+        const bShade = Math.random() > 0.5 ? 200 + Math.random() * 55 : 30 + Math.random() * 40;
+        ctx.fillStyle = `rgb(${bShade},${bShade},${bShade})`;
+        ctx.fillRect(x, y, r, r);
+      }
+
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2.0;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        let cx = Math.random() * w;
+        let cy = Math.random() * h;
+        ctx.moveTo(cx, cy);
+        for (let s = 0; s < 5; s++) {
+          cx += (Math.random() - 0.5) * 35;
+          cy += (Math.random() - 0.5) * 35;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+    });
+    bump.repeat.set(repX, repY);
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      bumpMap: bump,
+      bumpScale: 0.08,
+      roughness: 0.82, // Темный, матовый асфальт
+      metalness: 0.12
+    });
+  }
+
+  // --- 2. ВОЛНИСТЫЙ ШИФЕР С ВЫПУКЛЫМИ ВОЛНАМИ И МХОМ (BUMP MAP) ---
+  static createSlateRoofMaterial() {
+    const diffuse = this.createTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#576574';
+      ctx.fillRect(0, 0, w, h);
+      const waveWidth = 32;
+      for (let x = 0; x < w; x += waveWidth) {
+        const grad = ctx.createLinearGradient(x, 0, x + waveWidth, 0);
+        grad.addColorStop(0, '#222f3e');
+        grad.addColorStop(0.5, '#c8d6e5'); // Гребень волны шифера
+        grad.addColorStop(1, '#222f3e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, 0, waveWidth, h);
+      }
+
+      // Тонкие продольные волокна асбестоцемента
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let y = 0; y < h; y += 4) {
+        ctx.fillRect(0, y, w, 1);
+      }
+
+      // Натуральные пятна мха
+      ctx.fillStyle = 'rgba(46, 125, 50, 0.45)';
+      for (let i = 0; i < 35; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 6 + Math.random() * 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(85, 107, 47, 0.35)';
+      for (let i = 0; i < 25; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 4 + Math.random() * 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    diffuse.repeat.set(6.8, 3.2);
+
+    // Bump Map: чистая синусоида волн шифера
+    const bump = this.createTexture(512, 512, (ctx, w, h) => {
+      const waveWidth = 32;
+      for (let x = 0; x < w; x++) {
+        const phase = (x % waveWidth) / waveWidth;
+        const val = Math.floor((Math.sin(phase * Math.PI * 2 - Math.PI / 2) * 0.5 + 0.5) * 255);
+        ctx.fillStyle = `rgb(${val},${val},${val})`;
+        ctx.fillRect(x, 0, 1, h);
+      }
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 20;
+        data[i] = Math.min(255, Math.max(0, data[i] + noise));
+        data[i+1] = data[i];
+        data[i+2] = data[i];
+      }
+      ctx.putImageData(imgData, 0, 0);
+    });
+    bump.repeat.set(6.8, 3.2);
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      bumpMap: bump,
+      bumpScale: 0.28, // Контрастный объем волн шифера под солнцем
+      roughness: 0.88,
+      metalness: 0.04
+    });
+  }
+
+  // --- 3. БЕТОННЫЕ ПЛИТЫ ПАГ-14 ВОЕННОГО АЭРОДРОМА ГОРОДНИ ---
+  static createAirfieldMaterial(width = 55, length = 1400) {
+    const repX = Math.max(1, Math.round(width / 6.0));
+    const repY = Math.max(1, Math.round(length / 6.0));
+
+    const diffuse = this.createTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#8395a7';
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 3000; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const shade = Math.floor(100 + Math.random() * 55);
+        ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+        ctx.fillRect(x, y, 1.5, 1.5);
+      }
+
+      // Битумные черные швы между плитами
+      const jointColor = '#101418';
+      ctx.fillStyle = jointColor;
+      ctx.fillRect(0, 252, w, 8);
+      ctx.fillRect(0, 0, w, 4);
+      ctx.fillRect(0, h - 4, w, 4);
+      ctx.fillRect(252, 0, 8, h);
+      ctx.fillRect(0, 0, 4, h);
+      ctx.fillRect(w - 4, 0, 4, h);
+
+      // Масляные пятна
+      ctx.fillStyle = 'rgba(15, 20, 25, 0.65)';
+      ctx.beginPath();
+      ctx.ellipse(140, 160, 42, 28, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Следы торможения самолетов
+      ctx.fillStyle = 'rgba(25, 30, 35, 0.4)';
+      ctx.fillRect(40, 0, 22, h);
+      ctx.fillRect(75, 0, 22, h);
+      ctx.fillRect(320, 0, 22, h);
+      ctx.fillRect(355, 0, 22, h);
+    });
+    diffuse.repeat.set(repX, repY);
+
+    const bump = this.createTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#dcdde1';
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 2500; i++) {
+        const x = Math.random() * w;
+        const y = Math.random() * h;
+        const b = Math.floor(170 + Math.random() * 70);
+        ctx.fillStyle = `rgb(${b},${b},${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+
+      // Глубокие впадины швов
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 250, w, 12);
+      ctx.fillRect(0, 0, w, 6);
+      ctx.fillRect(0, h - 6, w, 6);
+      ctx.fillRect(250, 0, 12, h);
+      ctx.fillRect(0, 0, 6, h);
+      ctx.fillRect(w - 6, 0, 6, h);
+    });
+    bump.repeat.set(repX, repY);
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      bumpMap: bump,
+      bumpScale: 0.22,
+      roughness: 0.85,
+      metalness: 0.15
+    });
+  }
+
+  // --- 4. ЗЕРКАЛЬНЫЕ ГЛЯНЦЕВЫЕ ВИТРИНЫ МАГАЗИНОВ (АТБ, Аврора) ---
+  static createStorefrontGlassMaterial(type = 'atb') {
+    const diffuse = this.createTexture(512, 256, (ctx, w, h) => {
+      ctx.fillStyle = type === 'atb' ? '#061320' : '#240a08';
+      ctx.fillRect(0, 0, w, h);
+
+      if (type === 'atb') {
+        ctx.fillStyle = '#00d2d3'; // Неоновая полоса полок
+        ctx.fillRect(20, 110, w - 40, 10);
+        ctx.fillStyle = '#fffae6';
+        for (let x = 60; x < w; x += 110) {
+          ctx.beginPath();
+          ctx.arc(x, 40, 24, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#e74c3c'; ctx.fillRect(50, 150, 75, 45);
+        ctx.fillStyle = '#0984e3'; ctx.fillRect(170, 150, 75, 45);
+        ctx.fillStyle = '#2ecc71'; ctx.fillRect(290, 150, 75, 45);
+      } else {
+        ctx.fillStyle = '#fbc531'; ctx.fillRect(20, 100, w - 40, 14);
+        ctx.fillStyle = '#eb4d4b'; ctx.fillRect(20, 150, w - 40, 14);
+        ctx.fillStyle = '#f5f6fa';
+        for (let x = 60; x < w; x += 90) {
+          ctx.beginPath();
+          ctx.arc(x, 40, 20, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.strokeStyle = '#2f3542';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+      for (let x = w / 3; x < w; x += w / 3) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+    });
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      roughness: 0.05, // Зеркально гладкое стекло
+      metalness: 0.92, // Яркие отражения солнца и неба
+      emissive: new THREE.Color(type === 'atb' ? 0x00d2d3 : 0xfbc531),
+      emissiveIntensity: 0.38
+    });
+  }
+
+  // --- 5. ЗЕРКАЛЬНЫЕ ОКНА ДОМОВ ---
+  static createHouseWindowMaterial() {
+    const diffuse = this.createTexture(256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#1e1914';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#f39c12';
+      ctx.beginPath();
+      ctx.arc(128, 85, 36, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#dfe4ea';
+      ctx.fillRect(10, 0, 42, h);
+      ctx.fillRect(w - 52, 0, 42, h);
+
+      ctx.strokeStyle = '#f5f6fa';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, w - 10, h - 10);
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
+      ctx.moveTo(0, h * 0.42); ctx.lineTo(w, h * 0.42);
+      ctx.stroke();
+    });
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      roughness: 0.08,
+      metalness: 0.88,
+      emissive: new THREE.Color(0xf1c40f),
+      emissiveIntensity: 0.22
+    });
+  }
+
+  // --- 6. КИРПИЧ С РЕЛЬЕФНЫМИ ШВАМИ (BUMP MAP) ---
+  static createBrickMaterial(type = 'red') {
+    let baseColor = '#b33927';
+    if (type === 'white') baseColor = '#d2d7d9';
+    if (type === 'plaster') baseColor = '#e2dcbe';
+
+    const diffuse = this.createTexture(512, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#3d3d3d';
+      ctx.fillRect(0, 0, w, h);
+      const rh = 32; const cw = 64;
+      for (let r = 0; r < h / rh; r++) {
+        const offset = (r % 2) * (cw / 2);
+        for (let c = -1; c < w / cw + 1; c++) {
+          ctx.fillStyle = baseColor;
+          ctx.fillRect(c * cw + offset + 2, r * rh + 2, cw - 4, rh - 4);
+          ctx.fillStyle = 'rgba(0,0,0,0.12)';
+          ctx.fillRect(c * cw + offset + 3, r * rh + 3, cw - 6, 2);
+        }
+      }
+    });
+    diffuse.repeat.set(3, 2);
+
+    const bump = this.createTexture(512, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, w, h);
+      const rh = 32; const cw = 64;
+      for (let r = 0; r < h / rh; r++) {
+        const offset = (r % 2) * (cw / 2);
+        for (let c = -1; c < w / cw + 1; c++) {
+          ctx.fillStyle = '#e0e0e0';
+          ctx.fillRect(c * cw + offset + 2, r * rh + 2, cw - 4, rh - 4);
+        }
+      }
+    });
+    bump.repeat.set(3, 2);
+
+    return new THREE.MeshStandardMaterial({
+      map: diffuse,
+      bumpMap: bump,
+      bumpScale: 0.12,
+      roughness: 0.78,
+      metalness: 0.05
+    });
   }
 
   // Тротуарная плитка ФЭМ (Центр, парковка АТБ)
@@ -46,30 +424,6 @@ class ProceduralPBRFactory {
     return new THREE.MeshStandardMaterial({ map: diffuse, roughness: 0.65, metalness: 0.05 });
   }
 
-  // Волнистый шифер с мхом для крыш
-  static createSlateRoofMaterial() {
-    const diffuse = this.createTexture(512, 512, (ctx, w, h) => {
-      ctx.fillStyle = '#636e72'; ctx.fillRect(0, 0, w, h);
-      const waveWidth = 32;
-      for (let x = 0; x < w; x += waveWidth) {
-        const grad = ctx.createLinearGradient(x, 0, x + waveWidth, 0);
-        grad.addColorStop(0, '#2d3436');
-        grad.addColorStop(0.5, '#b2bec3');
-        grad.addColorStop(1, '#2d3436');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, 0, waveWidth, h);
-      }
-      ctx.fillStyle = 'rgba(46, 125, 50, 0.45)';
-      for (let i = 0; i < 35; i++) {
-        ctx.beginPath();
-        ctx.arc(Math.random() * w, Math.random() * h, 8 + Math.random() * 24, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-    diffuse.repeat.set(4, 4);
-    return new THREE.MeshStandardMaterial({ map: diffuse, roughness: 0.88, metalness: 0.02 });
-  }
-
   // Металлочерепица (вишневая / шоколадная)
   static createMetalRoofMaterial(colorHex = '#800000') {
     const diffuse = this.createTexture(256, 256, (ctx, w, h) => {
@@ -79,27 +433,6 @@ class ProceduralPBRFactory {
     });
     diffuse.repeat.set(3, 3);
     return new THREE.MeshStandardMaterial({ map: diffuse, roughness: 0.35, metalness: 0.6 });
-  }
-
-  // Облицовочный силикатный, красный кирпич и штукатурка
-  static createBrickMaterial(type = 'red') {
-    let baseColor = '#a04000';
-    if (type === 'white') baseColor = '#d5dbdb';
-    if (type === 'plaster') baseColor = '#e0d8b0';
-
-    const diffuse = this.createTexture(512, 256, (ctx, w, h) => {
-      ctx.fillStyle = '#2c3e50'; ctx.fillRect(0, 0, w, h);
-      const rh = 32; const cw = 64;
-      ctx.fillStyle = baseColor;
-      for (let r = 0; r < h / rh; r++) {
-        const offset = (r % 2) * (cw / 2);
-        for (let c = -1; c < w / cw + 1; c++) {
-          ctx.fillRect(c * cw + offset + 2, r * rh + 2, cw - 4, rh - 4);
-        }
-      }
-    });
-    diffuse.repeat.set(4, 4);
-    return new THREE.MeshStandardMaterial({ map: diffuse, roughness: 0.78, metalness: 0.05 });
   }
 
   // Вспаханная земля полей (бороздки чернозема)
@@ -128,6 +461,8 @@ class ProceduralPBRFactory {
     ctx.fillText(`${logoIcon} ${text}`, 256, 64);
 
     const tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = this.getAnisotropy();
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
     return new THREE.MeshStandardMaterial({
       map: tex,
       emissive: new THREE.Color(bgColor),
@@ -137,10 +472,7 @@ class ProceduralPBRFactory {
   }
 }
 
-// =============================================================================
-// ОСНОВНОЙ КЛАСС МИРА ГОРОДНИ
-// =============================================================================
-class GorodnyaPart1World {
+// class GorodnyaPart1World {
   constructor(scene) {
     this.scene = scene;
     this.collisionBoxes = [];
@@ -237,12 +569,13 @@ class GorodnyaPart1World {
 
   // --- 2. ДОРОЖНАЯ СЕТЬ ГОРОДНИ ---
   buildRoadNetwork() {
-    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222629, roughness: 0.88, metalness: 0.1 });
     const dirtRoadMat = new THREE.MeshStandardMaterial({ color: 0x4a3b32, roughness: 0.95 });
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x8395a7, roughness: 0.6 });
 
     const createRoad = (width, length, x, z, rotY = 0, isDirt = false) => {
-      const road = new THREE.Mesh(new THREE.PlaneGeometry(width, length), isDirt ? dirtRoadMat : asphaltMat);
+      const isMain = (width >= 16);
+      const roadMat = isDirt ? dirtRoadMat : ProceduralPBRFactory.createRoadMaterial(width, length, isMain);
+      const road = new THREE.Mesh(new THREE.PlaneGeometry(width, length), roadMat);
       road.rotation.x = -Math.PI / 2;
       road.rotation.z = -rotY;
       road.position.set(x, 0.06, z);
@@ -299,6 +632,12 @@ class GorodnyaPart1World {
     sign.position.set(0, 6.5, 14.2);
     atbGroup.add(sign);
 
+    // Зеркальная витрина АТБ с LED-подсветкой
+    const atbGlassMat = ProceduralPBRFactory.createStorefrontGlassMaterial('atb');
+    const atbGlass = new THREE.Mesh(new THREE.PlaneGeometry(28, 3.8), atbGlassMat);
+    atbGlass.position.set(0, 2.5, 14.25);
+    atbGroup.add(atbGlass);
+
     const parkingMat = ProceduralPBRFactory.createFEMTileMaterial();
     const parking = new THREE.Mesh(new THREE.PlaneGeometry(54, 34), parkingMat);
     parking.rotation.x = -Math.PI / 2;
@@ -330,6 +669,12 @@ class GorodnyaPart1World {
     const sign = new THREE.Mesh(new THREE.BoxGeometry(15, 2.2, 0.3), signMat);
     sign.position.set(0, 5.0, 10.2);
     avrGroup.add(sign);
+
+    // Зеркальная витрина Авроры
+    const avrGlassMat = ProceduralPBRFactory.createStorefrontGlassMaterial('avrora');
+    const avrGlass = new THREE.Mesh(new THREE.PlaneGeometry(18, 3.2), avrGlassMat);
+    avrGlass.position.set(0, 2.2, 10.25);
+    avrGroup.add(avrGlass);
 
     this.scene.add(avrGroup);
   }
@@ -412,7 +757,7 @@ class GorodnyaPart1World {
     const airfieldGroup = new THREE.Group();
     airfieldGroup.position.set(450, 0, -450);
 
-    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x57606f, roughness: 0.75, metalness: 0.1 });
+    const runwayMat = ProceduralPBRFactory.createAirfieldMaterial(55, 1400);
     const runway = new THREE.Mesh(new THREE.PlaneGeometry(55, 1400), runwayMat);
     runway.rotation.x = -Math.PI / 2;
     runway.position.y = 0.07;
