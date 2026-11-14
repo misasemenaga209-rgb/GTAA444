@@ -1181,3 +1181,13 @@ class GorodnyaPart2Engine {
 }
 
 window.GorodnyaPart2Engine = GorodnyaPart2Engine;
+
+window.SoundEngine = SoundEngine;
+window.CharacterController = CharacterController;
+window.ThirdPersonCamera = ThirdPersonCamera;
+window.VehicleFactory = VehicleFactory;
+window.VehiclePhysics = VehiclePhysics;
+window.ParticleSystem3D = ParticleSystem3D;
+window.LivingCityAI = LivingCityAI;
+window.ShopAndMissionSystem = ShopAndMissionSystem;
+window.RadarAndHUD = RadarAndHUD;
