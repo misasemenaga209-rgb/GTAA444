@@ -424,12 +424,12 @@
   </div>
 
   <!-- ПОДКЛЮЧЕНИЕ ВСЕХ МОДУЛЕЙ ГОРОДНИ (ЧАСТИ 1, 2, 3, 4 И 5) С CACHE BUSTER -->
-  <script src="gorodnya_part1.js?v=20261114_v5"></script>
-  <script src="gorodnya_part2.js?v=20261114_v5"></script>
-  <script src="gorodnya_part3.js?v=20261114_v5"></script>
-  <script src="gorodnya_part4.js?v=20261114_v5"></script>
-  <script src="gorodnya_part5.js?v=20261114_v5"></script>
-  <script src="dev_free_camera.js?v=20261114_v5"></script>
+  <script src="gorodnya_part1.js?v=20261114_pbr_v6"></script>
+  <script src="gorodnya_part2.js?v=20261114_pbr_v6"></script>
+  <script src="gorodnya_part3.js?v=20261114_pbr_v6"></script>
+  <script src="gorodnya_part4.js?v=20261114_pbr_v6"></script>
+  <script src="gorodnya_part5.js?v=20261114_pbr_v6"></script>
+  <script src="dev_free_camera.js?v=20261114_pbr_v6"></script>
 
   <!-- КАРТА ГОРОДНИ И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ С ПОЛНОЙ ОПТИМИЗАЦИЕЙ -->
   <script>
@@ -446,9 +446,9 @@
 
       initThree() {
         this.scene = new THREE.Scene();
-        // Яскраве денне небо над Городнею та легкий прозорий серпанок без чорної порожнечі
+        // Чисте блакитне небо над Городнею та прозора атмосферна димка
         this.scene.background = new THREE.Color(0x7ec0ee);
-        this.scene.fog = new THREE.FogExp2(0x7ec0ee, 0.0006);
+        this.scene.fog = new THREE.FogExp2(0x7ec0ee, 0.00055);
 
         this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 2800);
         this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -456,27 +456,33 @@
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
+
+        // ACES Filmic Tone Mapping: усунення сірої бляклості, соковиті та глибокі кольори
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.18;
         this.container.appendChild(this.renderer.domElement);
 
-        // Тепле сонячне освітлення полудня
-        const sun = new THREE.DirectionalLight(0xfffaed, 1.45);
-        sun.position.set(250, 350, 180);
+        // Контрастне сонячне світло: чіткі об'ємні тіні від будинків та парканів
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.65);
+        sun.position.set(220, 340, 160);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
-        sun.shadow.camera.near = 0.5;
-        sun.shadow.camera.far = 1200;
-        sun.shadow.camera.left = -400;
-        sun.shadow.camera.right = 400;
-        sun.shadow.camera.top = 400;
-        sun.shadow.camera.bottom = -400;
+        sun.shadow.bias = -0.00025;
+        sun.shadow.normalBias = 0.025;
+        sun.shadow.camera.near = 1.0;
+        sun.shadow.camera.far = 1400;
+        sun.shadow.camera.left = -500;
+        sun.shadow.camera.right = 500;
+        sun.shadow.camera.top = 500;
+        sun.shadow.camera.bottom = -500;
         this.scene.add(sun);
 
-        // Природне розсіяне світло (блакить неба + тепле відбиття трави)
-        const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x3d5a35, 0.85);
+        // Природне розсіяне освітлення (небо + трава) зі збереженням глибокого контрасту тіней
+        const hemiLight = new THREE.HemisphereLight(0x7ec0ee, 0x223524, 0.52);
         this.scene.add(hemiLight);
 
-        const ambLight = new THREE.AmbientLight(0xffffff, 0.35);
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.22);
         this.scene.add(ambLight);
 
         window.addEventListener('resize', () => {
