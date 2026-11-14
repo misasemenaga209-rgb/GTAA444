@@ -889,17 +889,29 @@ class DynamicWeatherSystem {
     this.currentWeather = type;
 
     if (type === 'CLEAR') {
-      this.scene.fog.density = 0.0018;
+      if (this.scene.fog) {
+        this.scene.fog.density = 0.0006;
+        this.scene.fog.color.set(0x7ec0ee);
+      }
+      if (this.scene.background) this.scene.background.set(0x7ec0ee);
       this.rainPoints.visible = false;
       this.setRoadWetness(cityRoads, 0.88);
     } else if (type === 'FOG') {
-      this.scene.fog.density = 0.015; // Плотный туман над рекой Смяч
+      if (this.scene.fog) {
+        this.scene.fog.density = 0.006;
+        this.scene.fog.color.set(0x94a3b8);
+      }
+      if (this.scene.background) this.scene.background.set(0x94a3b8);
       this.rainPoints.visible = false;
       this.setRoadWetness(cityRoads, 0.55);
     } else if (type === 'RAIN') {
-      this.scene.fog.density = 0.0055;
+      if (this.scene.fog) {
+        this.scene.fog.density = 0.0028;
+        this.scene.fog.color.set(0x475569);
+      }
+      if (this.scene.background) this.scene.background.set(0x475569);
       this.rainPoints.visible = true;
-      this.setRoadWetness(cityRoads, 0.12); // Мокрый зеркальный асфальт
+      this.setRoadWetness(cityRoads, 0.12);
     }
   }
 
