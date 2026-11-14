@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Городня 3D: Відкритий Світ (Gorodnya 3D Open World)</title>
+  <title>Городня 3D: Відкритий Світ (Gorodnya 3D AAA Open World)</title>
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -86,6 +86,18 @@
       margin-top: 4px;
     }
 
+    /* WEAPON HUD */
+    #hud-weapon {
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid #38bdf8;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-family: 'Teko', sans-serif;
+      font-size: 22px;
+      color: #ffd700;
+      letter-spacing: 1px;
+    }
+
     /* BOTTOM LEFT RADAR */
     #hud-bottom-left {
       position: absolute;
@@ -148,7 +160,6 @@
       margin-top: 4px;
     }
 
-    /* PROMPTS & MODALS */
     #interaction-prompt {
       position: absolute;
       bottom: 110px;
@@ -174,8 +185,7 @@
     /* SHOP MODAL */
     #shop-modal {
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       background: #1e293b;
       border: 2px solid #38bdf8;
@@ -186,39 +196,111 @@
       display: none;
       box-shadow: 0 0 35px rgba(0, 0, 0, 0.9);
     }
-    #shop-modal h2 {
-      font-size: 20px;
-      margin-bottom: 16px;
-      color: #38bdf8;
-      text-align: center;
-    }
+    #shop-modal h2 { font-size: 20px; margin-bottom: 16px; color: #38bdf8; text-align: center; }
     .shop-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #0f172a;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 6px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: #0f172a; padding: 10px; margin-bottom: 10px; border-radius: 6px;
     }
     .shop-item button {
-      background: #0284c7;
-      border: none;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
+      background: #0284c7; border: none; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;
     }
     #shop-close-btn {
-      width: 100%;
-      margin-top: 10px;
-      padding: 8px;
-      background: #475569;
-      border: none;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
+      width: 100%; margin-top: 10px; padding: 8px; background: #475569; border: none; color: #fff; border-radius: 4px; cursor: pointer;
+    }
+
+    /* TUNING MODAL (СТО) */
+    #tuning-modal {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #111827;
+      border: 2px solid #ef4444;
+      border-radius: 12px;
+      padding: 26px;
+      width: 440px;
+      z-index: 55;
+      display: none;
+      box-shadow: 0 0 45px rgba(239, 68, 68, 0.4);
+    }
+    #tuning-modal h2 {
+      font-family: 'Teko', sans-serif;
+      font-size: 38px;
+      color: #ef4444;
+      text-align: center;
+      letter-spacing: 2px;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+    .tuning-section {
+      background: #1f2937;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+    .tuning-section h4 {
+      font-size: 14px;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+    .color-presets {
+      display: flex; gap: 8px;
+    }
+    .color-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff; cursor: pointer;
+    }
+    .upgrade-btn {
+      width: 100%; background: #374151; border: 1px solid #4b5563; color: #fff;
+      padding: 8px; margin-bottom: 6px; border-radius: 4px; cursor: pointer; text-align: left;
+      font-size: 13px; display: flex; justify-content: space-between;
+    }
+    .upgrade-btn:hover { background: #ef4444; }
+
+    /* GTA SMARTPHONE */
+    #gta-smartphone {
+      position: absolute;
+      bottom: 24px; right: 28px;
+      width: 320px; height: 560px;
+      background: #0f172a;
+      border: 6px solid #1e293b;
+      border-radius: 36px;
+      z-index: 70;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
+    }
+    .phone-notch {
+      width: 100px; height: 18px; background: #1e293b; margin: 0 auto; border-radius: 0 0 12px 12px;
+    }
+    .phone-header {
+      padding: 10px 16px; display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;
+    }
+    .phone-screen {
+      flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .phone-app-btn {
+      background: #1e293b; border: 1px solid #334155; color: #fff; padding: 12px; border-radius: 10px;
+      cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px;
+    }
+    .phone-app-btn:hover { background: #0284c7; }
+
+    /* WASTED & BUSTED SCREENS */
+    #wasted-screen, #busted-screen {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 90;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #wasted-screen { background: rgba(185, 28, 28, 0.82); backdrop-filter: blur(8px); }
+    #busted-screen { background: rgba(30, 58, 138, 0.82); backdrop-filter: blur(8px); }
+    .wasted-text {
+      font-family: 'Teko', sans-serif; font-size: 130px; color: #fee2e2; letter-spacing: 12px; text-shadow: 0 0 35px #000;
+    }
+    .busted-text {
+      font-family: 'Teko', sans-serif; font-size: 130px; color: #dbeafe; letter-spacing: 12px; text-shadow: 0 0 35px #000;
     }
 
     /* INTRO OVERLAY */
@@ -290,6 +372,7 @@
       <div class="hud-bar-bg"><div id="hud-hp-bar"></div></div>
     </div>
     <div id="hud-stars">☆☆☆☆☆</div>
+    <div id="hud-weapon">👊 КУЛАКИ</div>
     <div id="hud-gps-district">Центр Городні</div>
   </div>
 
@@ -329,33 +412,107 @@
     <button id="shop-close-btn" onclick="window.gameApp.closeShop()">Закрити</button>
   </div>
 
+  <!-- TUNING MODAL (СТО) -->
+  <div id="tuning-modal">
+    <h2>ТЮНІНГ-АТЕЛЬЄ СТО</h2>
+    <div class="tuning-section">
+      <h4>ФАРБУВАННЯ КУЗОВА:</h4>
+      <div class="color-presets">
+        <div class="color-btn" style="background: #111;" onclick="window.gameApp.tuning.applyBodyColor('#111111')"></div>
+        <div class="color-btn" style="background: #b93a2b;" onclick="window.gameApp.tuning.applyBodyColor('#b93a2b')"></div>
+        <div class="color-btn" style="background: #0984e3;" onclick="window.gameApp.tuning.applyBodyColor('#0984e3')"></div>
+        <div class="color-btn" style="background: #2ecc71;" onclick="window.gameApp.tuning.applyBodyColor('#2ecc71')"></div>
+        <div class="color-btn" style="background: #9c88ff;" onclick="window.gameApp.tuning.applyBodyColor('#9c88ff')"></div>
+      </div>
+    </div>
+    <div class="tuning-section">
+      <h4>АПГРЕЙДИ (₴):</h4>
+      <button class="upgrade-btn" onclick="window.gameApp.tuning.buyUpgrade(window.gameApp.player, 'chip')">
+        <span>🚀 Чіп-тюнінг двигуна (+35% розгін)</span><b>1,200 ₴</b>
+      </button>
+      <button class="upgrade-btn" onclick="window.gameApp.tuning.buyUpgrade(window.gameApp.player, 'tires')">
+        <span>🏎 Спортивна гума Michelin</span><b>850 ₴</b>
+      </button>
+      <button class="upgrade-btn" onclick="window.gameApp.tuning.buyUpgrade(window.gameApp.player, 'nitro')">
+        <span>🔥 Закис азоту (NOS на Shift)</span><b>1,800 ₴</b>
+      </button>
+      <button class="upgrade-btn" onclick="window.gameApp.tuning.buyUpgrade(window.gameApp.player, 'neon')">
+        <span>💡 Неонова підсвітка днища</span><b>650 ₴</b>
+      </button>
+    </div>
+    <button id="tuning-close-btn" class="upgrade-btn" style="text-align:center; background:#ef4444;" onclick="window.gameApp.tuning.closeTuningMenu()">ВИЇХАТИ З БОКСУ</button>
+  </div>
+
+  <!-- GTA SMARTPHONE -->
+  <div id="gta-smartphone">
+    <div class="phone-notch"></div>
+    <div class="phone-header">
+      <span>Городня 5G</span>
+      <span id="phone-clock">14:20</span>
+    </div>
+    <div class="phone-screen">
+      <div class="phone-app-btn" onclick="window.gameApp.phone.setWaypoint(0, -180, 'Супермаркет АТБ')">
+        <span>🗺</span> GPS: Супермаркет «АТБ»
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.phone.setWaypoint(-220, 40, 'Центральний Базар')">
+        <span>🏬</span> GPS: Центральний Базар
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.phone.setWaypoint(340, -400, 'Військовий Аеродром')">
+        <span>✈️</span> GPS: Аеродром ПАГ-14
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.phone.setWaypoint(180, -80, 'СТО Тюнінг-ательє')">
+        <span>🔧</span> GPS: Гараж / СТО
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.openMissionSelect()">
+        <span>🎯</span> Сюжетні Місії Городні
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.weather.setWeather(window.gameApp.weather.currentWeather === 'RAIN' ? 'CLEAR' : 'RAIN', window.gameApp.cityMap.roadsList)">
+        <span>🌧</span> Перемкнути Погоду (Дощ/Ясно)
+      </div>
+      <div class="phone-app-btn" onclick="window.gameApp.phone.saveGame(window.gameApp.player, window.gameApp.tuning)">
+        <span>💾</span> Зберегти гру в браузер
+      </div>
+    </div>
+  </div>
+
+  <!-- WASTED & BUSTED SCREENS -->
+  <div id="wasted-screen">
+    <div class="wasted-text">ПОТРАЧЕНО</div>
+  </div>
+  <div id="busted-screen">
+    <div class="busted-text">АРЕСТОВАН</div>
+  </div>
+
   <!-- INTRO SCREEN -->
   <div id="intro-overlay">
     <div class="intro-card">
       <h1>ГОРОДНЯ 3D</h1>
       <p>Відкритий світ Чернігівської області: вул. Шевченка, Чернігівська, АТБ, Базар, Нова Пошта, Вокзал та військовий Аеродром.</p>
       <div class="controls-table">
-        <div><span>Керування пішки:</span> <b>W, A, S, D / Стрілки</b></div>
-        <div><span>Біг (спринт) / Ручник:</span> <b>Shift / Space</b></div>
-        <div><span>Стрибок:</span> <b>Space</b></div>
-        <div><span>Огляд камерою:</span> <b>Затиснути ліву кнопку миші</b></div>
-        <div><span>Сісти / Вийти з авто:</span> <b>F</b> або <b>E</b></div>
-        <div><span>Меню місій (телефон):</span> <b>P</b></div>
+        <div><span>Керування:</span> <b>W, A, S, D / Стрілки</b></div>
+        <div><span>Біг / Ручник:</span> <b>Shift / Space</b></div>
+        <div><span>Атака / Постріл:</span> <b>Ліва кнопка миші</b></div>
+        <div><span>Зміна зброї:</span> <b>1, 2, 3, 4</b> (Кулаки, Бита, Пістолет, АК-47)</div>
+        <div><span>Огляд:</span> <b>Затиснути ліву кнопку миші</b></div>
+        <div><span>Сісти / Вийти:</span> <b>F</b> або <b>E</b></div>
+        <div><span>Смартфон:</span> <b>P</b> або <b>Tab</b></div>
       </div>
       <button class="start-btn" id="start-game-btn">РОЗПОЧАТИ ГРУ</button>
     </div>
   </div>
 
-  <!-- СКРИПТ ЧАСТИ 2 -->
+  <!-- СКРИПТЫ ЧАСТИ 2 И ЧАСТИ 3 -->
   <script src="gorodnya_part2.js"></script>
+  <script src="gorodnya_part3.js"></script>
 
-  <!-- СКРИПТ ЧАСТИ 1 (КАРТА ГОРОДНИ) И ОБЩИЙ ЦИКЛ ИГРЫ -->
+  <!-- СКРИПТ ЧАСТИ 1 И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ С BOOTSTRAP -->
   <script>
     class GorodnyaCityMap {
       constructor(scene) {
         this.scene = scene;
         this.collisionBoxes = [];
         this.vehicles = [];
+        this.roadsList = [];
 
         this.buildEnvironment();
         this.buildRoads();
@@ -366,7 +523,6 @@
       }
 
       buildEnvironment() {
-        // Рельеф / Земля
         const groundGeo = new THREE.PlaneGeometry(1600, 1600);
         const groundMat = new THREE.MeshLambertMaterial({ color: 0x223524 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -374,7 +530,6 @@
         ground.receiveShadow = true;
         this.scene.add(ground);
 
-        // Река Смяч
         const riverGeo = new THREE.PlaneGeometry(1200, 42);
         const waterMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.6 });
         const river = new THREE.Mesh(riverGeo, waterMat);
@@ -382,7 +537,6 @@
         river.position.set(0, 0.05, -220);
         this.scene.add(river);
 
-        // Озеро Делдачков
         const lakeGeo = new THREE.CircleGeometry(65, 32);
         const lake = new THREE.Mesh(lakeGeo, waterMat);
         lake.rotation.x = -Math.PI / 2;
@@ -391,54 +545,46 @@
       }
 
       buildRoads() {
-        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-        const concreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 }); // Плиты ПАГ-14
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
+        const concreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 });
 
-        // 1. ул. Черниговская (Север - Юг)
         const cherGeo = new THREE.PlaneGeometry(18, 1100);
         const cherRoad = new THREE.Mesh(cherGeo, roadMat);
         cherRoad.rotation.x = -Math.PI / 2;
         cherRoad.position.set(0, 0.08, 0);
         this.scene.add(cherRoad);
+        this.roadsList.push(cherRoad);
 
-        // 2. ул. Шевченко (Запад - Восток)
         const shevGeo = new THREE.PlaneGeometry(1100, 18);
         const shevRoad = new THREE.Mesh(shevGeo, roadMat);
         shevRoad.rotation.x = -Math.PI / 2;
         shevRoad.position.set(0, 0.09, 0);
         this.scene.add(shevRoad);
+        this.roadsList.push(shevRoad);
 
-        // 3. Военный Аэродром Городни: Бетонная взлетная полоса из плит ПАГ-14
         const runwayGeo = new THREE.PlaneGeometry(36, 680);
         const runway = new THREE.Mesh(runwayGeo, concreteMat);
         runway.rotation.x = -Math.PI / 2;
         runway.position.set(340, 0.1, -400);
         this.scene.add(runway);
+        this.roadsList.push(runway);
       }
 
       buildLandmarks() {
-        // 1. СУПЕРМАРКЕТ АТБ (ул. Черниговская)
-        const atbGroup = new THREE.Group();
-        const atbMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
-        const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), atbMat);
+        // АТБ
+        const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
         atbBody.position.set(0, 3.75, -180);
         atbBody.castShadow = true;
-        atbGroup.add(atbBody);
-
-        // Синяя вывеска АТБ
-        const atbSign = new THREE.Mesh(new THREE.BoxGeometry(16, 2.8, 1.2), new THREE.MeshBasicMaterial({ color: 0x0284c7 }));
-        atbSign.position.set(0, 6.2, -167.5);
-        atbGroup.add(atbSign);
-        this.scene.add(atbGroup);
+        this.scene.add(atbBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(atbBody));
 
-        // 2. МАГАЗИН «АВРОРА» (ул. 1-го Мая)
+        // Аврора
         const avrBody = new THREE.Mesh(new THREE.BoxGeometry(22, 6.0, 16), new THREE.MeshStandardMaterial({ color: 0xf1c40f }));
         avrBody.position.set(-90, 3.0, -80);
         this.scene.add(avrBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(avrBody));
 
-        // 3. ЦЕНТРАЛЬНЫЙ РЫНОК (БАЗАР)
+        // Базар
         const marketMat = new THREE.MeshStandardMaterial({ color: 0xd97706 });
         for (let i = 0; i < 4; i++) {
           const stall = new THREE.Mesh(new THREE.BoxGeometry(24, 3.6, 6), marketMat);
@@ -447,24 +593,28 @@
           this.collisionBoxes.push(new THREE.Box3().setFromObject(stall));
         }
 
-        // 4. ОТДЕЛЕНИЕ «НОВА ПОШТА» №2
+        // Новая Почта
         const npBody = new THREE.Mesh(new THREE.BoxGeometry(20, 6.0, 18), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
         npBody.position.set(-180, 3.0, -140);
         this.scene.add(npBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(npBody));
 
-        // 5. Ж/Д ВОКЗАЛ «ГОРОДНЯ»
+        // Вокзал
         const station = new THREE.Mesh(new THREE.BoxGeometry(38, 9.0, 22), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
         station.position.set(450, 4.5, 20);
         this.scene.add(station);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(station));
+
+        // Больница Городни
+        const hosp = new THREE.Mesh(new THREE.BoxGeometry(30, 8.0, 22), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+        hosp.position.set(-80, 4.0, 160);
+        this.scene.add(hosp);
+        this.collisionBoxes.push(new THREE.Box3().setFromObject(hosp));
       }
 
       buildPrivateSector() {
         const wallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
         const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c });
-
-        // Генерация кварталов частного сектора
         for (let x = -380; x < -120; x += 55) {
           for (let z = 90; z < 320; z += 55) {
             const house = new THREE.Group();
@@ -475,7 +625,6 @@
             roof.position.y = 5.8;
             roof.rotation.y = Math.PI / 4;
             house.add(roof);
-
             house.position.set(x, 0, z);
             this.scene.add(house);
             this.collisionBoxes.push(new THREE.Box3().setFromObject(body));
@@ -486,16 +635,12 @@
       buildDendropark() {
         const trunkMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
         const foliageMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
-
-        // Сосновые и дубовые аллеи Дендропарка
         for (let i = 0; i < 55; i++) {
           const tree = new THREE.Group();
           const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 4.5, 6), trunkMat);
-          trunk.position.y = 2.25;
-          tree.add(trunk);
+          trunk.position.y = 2.25; tree.add(trunk);
           const foliage = new THREE.Mesh(new THREE.ConeGeometry(2.4, 5.5, 6), foliageMat);
-          foliage.position.y = 5.8;
-          tree.add(foliage);
+          foliage.position.y = 5.8; tree.add(foliage);
 
           const tx = 60 + Math.random() * 220;
           const tz = 70 + Math.random() * 220;
@@ -506,38 +651,31 @@
       }
 
       spawnInitialFleet() {
-        // Размещение 6 уникальных машин Городни
-        // 1. ВАЗ-2101 «Жигули» у Базара
         const vaz = VehicleFactory.createVAZ2101();
         vaz.position.set(-185, 0, 15);
         this.scene.add(vaz);
         this.vehicles.push({ mesh: vaz, type: 'vaz' });
 
-        // 2. Daewoo Lanos на парковке АТБ
         const lanos = VehicleFactory.createDaewooLanos();
         lanos.position.set(16, 0, -170);
         this.scene.add(lanos);
         this.vehicles.push({ mesh: lanos, type: 'lanos' });
 
-        // 3. Фургон «Нова Пошта» у отделения №2
         const npVan = VehicleFactory.createNovaPoshtaVan();
         npVan.position.set(-165, 0, -135);
         this.scene.add(npVan);
         this.vehicles.push({ mesh: npVan, type: 'np' });
 
-        // 4. Автобус «Городня — Чернигов» на перекрестке
         const bus = VehicleFactory.createGorodnyaBus();
         bus.position.set(-14, 0, 30);
         this.scene.add(bus);
         this.vehicles.push({ mesh: bus, type: 'bus' });
 
-        // 5. Драг-купе на Аэродроме
         const drag = VehicleFactory.createDragCoupe();
         drag.position.set(340, 0, -220);
         this.scene.add(drag);
         this.vehicles.push({ mesh: drag, type: 'drag' });
 
-        // 6. Патруль Полиции у Горсовета
         const police = VehicleFactory.createPoliceCar();
         police.position.set(-18, 0, -45);
         this.scene.add(police);
@@ -546,7 +684,7 @@
     }
 
     // =========================================================================
-    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR)
+    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR С BOOTSTRAP)
     // =========================================================================
     class GorodnyaGameApp {
       constructor() {
@@ -571,18 +709,9 @@
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
 
-        // Освещение (Солнечный свет + Атмосфера)
         const sun = new THREE.DirectionalLight(0xfffaed, 1.4);
         sun.position.set(150, 220, 100);
         sun.castShadow = true;
-        sun.shadow.mapSize.width = 2048;
-        sun.shadow.mapSize.height = 2048;
-        sun.shadow.camera.near = 10;
-        sun.shadow.camera.far = 600;
-        sun.shadow.camera.left = -300;
-        sun.shadow.camera.right = 300;
-        sun.shadow.camera.top = 300;
-        sun.shadow.camera.bottom = -300;
         this.scene.add(sun);
 
         const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x1e293b, 0.65);
@@ -605,6 +734,9 @@
         this.shopSystem = new ShopAndMissionSystem(this.scene, this.sound);
         this.radarHUD = new RadarAndHUD(document.getElementById('radar-canvas'));
 
+        // Инициализация расширений Части 3
+        GameBootstrap.initAll(this);
+
         this.input = { forward: false, backward: false, left: false, right: false, sprint: false, jump: false, handbrake: false };
       }
 
@@ -621,14 +753,13 @@
             this.input.handbrake = true;
           }
 
-          // Посадка/Выход из авто [F] или [E]
-          if (k === 'f' || k === 'e') {
-            this.toggleVehicleInteraction();
-          }
+          if (k === 'f' || k === 'e') this.toggleVehicleInteraction();
 
-          // Телефон миссий [P]
-          if (k === 'p') {
-            this.openMissionSelect();
+          // Оружие 1-4
+          if (['1', '2', '3', '4'].includes(e.key)) {
+            this.combat.selectWeapon(parseInt(e.key), this.player.group);
+            const wNames = { 1: '👊 КУЛАКИ', 2: '🏏 БИТА', 3: '🔫 ПІСТОЛЕТ', 4: '💥 АК-47' };
+            document.getElementById('hud-weapon').innerText = wNames[e.key];
           }
         });
 
@@ -645,6 +776,13 @@
           }
         });
 
+        // Атака мышью на ЛКМ
+        window.addEventListener('mousedown', e => {
+          if (e.button === 0 && !this.player.inVehicle && document.getElementById('intro-overlay').style.display === 'none') {
+            this.combat.attack(this.player, this.camera, this.particles, this.aiCity);
+          }
+        });
+
         document.getElementById('start-game-btn').addEventListener('click', () => {
           this.sound.init();
           document.getElementById('intro-overlay').style.display = 'none';
@@ -653,7 +791,6 @@
 
       toggleVehicleInteraction() {
         if (this.player.inVehicle) {
-          // Выход из машины
           const vMesh = this.player.inVehicle.mesh;
           this.player.position.set(vMesh.position.x + 2.2, 0, vMesh.position.z);
           this.player.inVehicle = null;
@@ -662,7 +799,6 @@
           this.sound.setDriftSkid(0);
           document.getElementById('interaction-prompt').style.display = 'none';
         } else {
-          // Поиск ближайшей машины в радиусе 3.8м
           for (let v of this.cityMap.vehicles) {
             if (this.player.position.distanceTo(v.mesh.position) < 3.8) {
               this.activeVehiclePhysics = new VehiclePhysics(v.mesh, v.type, this.sound);
@@ -676,17 +812,12 @@
       openMissionSelect() {
         const choice = prompt("Оберіть місію Городні:\n1 - Експрес з Нової Пошти (до Вокзалу)\n2 - Король злітки (Драг на Аеродромі)\n3 - Каса Центрального ринку (Погоня 3 зірки!)");
         const id = parseInt(choice);
-        if (id >= 1 && id <= 3) {
-          this.shopSystem.startMission(id, this.player);
-        }
+        if (id >= 1 && id <= 3) this.shopSystem.startMission(id, this.player);
       }
 
       buyShopItem(id) {
-        if (this.shopSystem.buyItem(this.player, id)) {
-          alert('Покупка здійснена успішно!');
-        } else {
-          alert('Недостатньо гривень!');
-        }
+        if (this.shopSystem.buyItem(this.player, id)) alert('Покупка здійснена успішно!');
+        else alert('Недостатньо гривень!');
       }
 
       closeShop() {
@@ -701,44 +832,62 @@
           const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
           lastTime = currentTime;
 
-          // 1. Физика транспорта или движение игрока
+          // Физика авто или персонаж
           if (this.activeVehiclePhysics) {
             this.activeVehiclePhysics.update(delta, this.input, 1.0, this.cityMap.collisionBoxes, this.particles);
             this.player.position.copy(this.activeVehiclePhysics.mesh.position);
+
+            // Закись азота (NOS) на Shift
+            if (this.input.sprint) {
+              this.tuning.triggerNitro(delta, this.activeVehiclePhysics, this.particles, this.camera);
+            } else {
+              this.tuning.stopNitro(delta, this.camera);
+            }
+
+            // Проверка заезда в бокс СТО
+            if (this.tuning.checkSTODriveIn(this.player.inVehicle) && !this.tuning.isMenuOpen) {
+              this.tuning.openTuningMenu(this.activeVehiclePhysics);
+            }
           } else {
             this.player.update(delta, this.input, this.tpCamera.angleY, this.cityMap.collisionBoxes);
           }
 
-          // 2. Умная камера
+          // Проверка гибели игрока (Wasted)
+          if (this.player.health <= 0) {
+            this.combat.triggerWasted(this.player);
+          }
+
+          // Умная камера
           const targetPos = this.player.inVehicle ? this.player.inVehicle.mesh.position : this.player.position;
           const spd = this.activeVehiclePhysics ? this.activeVehiclePhysics.speed : 0;
           this.tpCamera.update(delta, targetPos, spd, this.cityMap.collisionBoxes);
 
-          // 3. AI, частицы, магазины и миссии
+          // Обновление AI, погоды, комбата и миссий
           this.aiCity.update(delta, this.player.position, this.player.wantedStars, this.particles);
           this.particles.update(delta);
+          this.weather.update(delta, this.player.position);
+          this.combat.update(delta, this.player, this.particles);
           this.shopSystem.update(delta, this.player);
 
-          // Проверка входа в магазины Городни
+          // Магазины
           const activeShop = this.shopSystem.checkShopTriggers(this.player);
           if (activeShop && !this.player.inVehicle) {
             document.getElementById('shop-modal').style.display = 'block';
             document.getElementById('shop-title').innerText = activeShop.name;
           }
 
-          // Подсказка сесть в авто
+          // Подсказка авто
           let nearCar = false;
           if (!this.player.inVehicle) {
             for (let v of this.cityMap.vehicles) {
               if (this.player.position.distanceTo(v.mesh.position) < 3.8) {
-                nearCar = true;
-                break;
+                nearCar = true; break;
               }
             }
           }
           document.getElementById('interaction-prompt').style.display = nearCar ? 'block' : 'none';
 
-          // 4. Отрисовка радара и обновление HUD
+          // Радар и HUD
           const heading = this.player.inVehicle ? this.activeVehiclePhysics.mesh.rotation.y : this.player.heading;
           this.radarHUD.drawRadar(this.player.position, heading, this.shopSystem.shops, this.shopSystem.currentMission, this.aiCity.policeCars);
           this.radarHUD.updateHUD(this.player, this.activeVehiclePhysics, this.shopSystem.currentMission);
@@ -750,7 +899,6 @@
       }
     }
 
-    // Запуск игры
     window.addEventListener('DOMContentLoaded', () => {
       const app = new GorodnyaGameApp();
       app.start();
