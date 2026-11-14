@@ -475,12 +475,31 @@ class UltraTextureEngine {
       }
     });
 
+    mat.map = atlas;
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uInteriorAtlas = { value: atlas };
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        `#include <common>
+         #ifndef USE_UV
+         varying vec2 vUv;
+         #endif`
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <uv_vertex>',
+        `#include <uv_vertex>
+         #ifndef USE_UV
+         vUv = uv;
+         #endif`
+      );
 
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
         `#include <common>
+         #ifndef USE_UV
+         varying vec2 vUv;
+         #endif
          uniform sampler2D uInteriorAtlas;`
       );
 
