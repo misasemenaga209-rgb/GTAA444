@@ -472,7 +472,7 @@ class ProceduralPBRFactory {
   }
 }
 
-// class GorodnyaPart1World {
+class GorodnyaPart1World {
   constructor(scene) {
     this.scene = scene;
     this.collisionBoxes = [];
