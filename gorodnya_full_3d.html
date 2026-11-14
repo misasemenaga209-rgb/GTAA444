@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Городня 3D: Відкритий Світ (Gorodnya 3D Ultra AAA Edition)</title>
+  <title>Городня 3D: Відкритий Світ (Gorodnya 3D Final AAA Master)</title>
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -300,64 +300,6 @@
     .busted-text {
       font-family: 'Teko', sans-serif; font-size: 130px; color: #dbeafe; letter-spacing: 12px; text-shadow: 0 0 35px #000;
     }
-
-    /* INTRO OVERLAY */
-    #intro-overlay {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(11, 15, 25, 0.94);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-    .intro-card {
-      background: #1e293b;
-      border: 2px solid #38bdf8;
-      padding: 32px 40px;
-      border-radius: 12px;
-      max-width: 620px;
-      text-align: center;
-      box-shadow: 0 0 45px rgba(56, 189, 248, 0.3);
-    }
-    .intro-card h1 {
-      font-family: 'Teko', sans-serif;
-      font-size: 58px;
-      color: #38bdf8;
-      line-height: 1;
-      letter-spacing: 2px;
-    }
-    .intro-card p {
-      color: #94a3b8;
-      margin: 12px 0 20px 0;
-      font-size: 15px;
-    }
-    .controls-table {
-      text-align: left;
-      font-size: 14px;
-      margin-bottom: 24px;
-      background: #0f172a;
-      padding: 16px;
-      border-radius: 8px;
-    }
-    .controls-table div {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 6px;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 4px;
-    }
-    .start-btn {
-      background: linear-gradient(135deg, #0284c7, #0369a1);
-      border: none;
-      color: #fff;
-      font-family: 'Teko', sans-serif;
-      font-size: 32px;
-      padding: 8px 36px;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
-    }
   </style>
 </head>
 <body>
@@ -481,30 +423,13 @@
     <div class="busted-text">АРЕСТОВАН</div>
   </div>
 
-  <!-- INTRO SCREEN -->
-  <div id="intro-overlay">
-    <div class="intro-card">
-      <h1>ГОРОДНЯ 3D</h1>
-      <p>Відкритий світ Чернігівської області: вул. Шевченка, Чернігівська, АТБ, Базар, Нова Пошта, Вокзал та військовий Аеродром.</p>
-      <div class="controls-table">
-        <div><span>Керування:</span> <b>W, A, S, D / Стрілки</b></div>
-        <div><span>Біг / Ручник:</span> <b>Shift / Space</b></div>
-        <div><span>Атака / Постріл:</span> <b>Ліва кнопка миші</b></div>
-        <div><span>Зміна зброї:</span> <b>1, 2, 3, 4</b> (Кулаки, Бита, Пістолет, АК-47)</div>
-        <div><span>Огляд:</span> <b>Затиснути ліву кнопку миші</b></div>
-        <div><span>Сісти / Вийти:</span> <b>F</b> або <b>E</b></div>
-        <div><span>Смартфон:</span> <b>P</b> або <b>Tab</b></div>
-      </div>
-      <button class="start-btn" id="start-game-btn">РОЗПОЧАТИ ГРУ</button>
-    </div>
-  </div>
-
-  <!-- ПОДКЛЮЧЕНИЕ ЧАСТЕЙ 2, 3 И 4 -->
+  <!-- ПОДКЛЮЧЕНИЕ ВСЕХ МОДУЛЕЙ ГОРОДНИ (ЧАСТИ 2, 3, 4 И 5) -->
   <script src="gorodnya_part2.js"></script>
   <script src="gorodnya_part3.js"></script>
   <script src="gorodnya_part4.js"></script>
+  <script src="gorodnya_part5.js"></script>
 
-  <!-- КАРТА ГОРОДНИ С ULTRA-ШЕЙДЕРАМИ И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ -->
+  <!-- КАРТА ГОРОДНИ И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ С ПОЛНОЙ ОПТИМИЗАЦИЕЙ -->
   <script>
     class GorodnyaCityMap {
       constructor(scene, textureEngine) {
@@ -545,7 +470,6 @@
       }
 
       buildRoads() {
-        // Ультра-шейдер дорог (3 слоя асфальта + разметка)
         const roadMat = this.textureEngine ? this.textureEngine.createRoadMaterial() : new THREE.MeshStandardMaterial({ color: 0x1e293b });
         const concreteMat = this.textureEngine ? this.textureEngine.createAirfieldMaterial() : new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
 
@@ -563,7 +487,6 @@
         this.scene.add(shevRoad);
         this.roadsList.push(shevRoad);
 
-        // Взлетная полоса аэродрома
         const runwayGeo = new THREE.PlaneGeometry(36, 680);
         const runway = new THREE.Mesh(runwayGeo, concreteMat);
         runway.rotation.x = -Math.PI / 2;
@@ -573,7 +496,7 @@
       }
 
       buildLandmarks() {
-        // АТБ с выветренным кирпичным фасадом и псевдо-окнами
+        // АТБ
         const atbMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0x1e293b, false) : new THREE.MeshStandardMaterial({ color: 0x0f172a });
         const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), atbMat);
         atbBody.position.set(0, 3.75, -180);
@@ -581,7 +504,7 @@
         this.scene.add(atbBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(atbBody));
 
-        // Витринные окна АТБ с псевдо-интерьером
+        // Окна АТБ с псевдо-интерьером
         if (this.textureEngine) {
           const winMat = this.textureEngine.createParallaxWindowMaterial('atb');
           const win = new THREE.Mesh(new THREE.PlaneGeometry(18, 3.8), winMat);
@@ -605,7 +528,7 @@
           this.collisionBoxes.push(new THREE.Box3().setFromObject(stall));
         }
 
-        // Новая Почта
+        // Новая Почта Отделение №2
         const npBody = new THREE.Mesh(new THREE.BoxGeometry(20, 6.0, 18), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
         npBody.position.set(-180, 3.0, -140);
         this.scene.add(npBody);
@@ -618,7 +541,7 @@
         this.scene.add(station);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(station));
 
-        // Больница Городни
+        // Больница
         const hosp = new THREE.Mesh(new THREE.BoxGeometry(30, 8.0, 22), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
         hosp.position.set(-80, 4.0, 160);
         this.scene.add(hosp);
@@ -698,7 +621,7 @@
     }
 
     // =========================================================================
-    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR C ПОДДЕРЖКОЙ ЧАСТИ 4)
+    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR СО ВСЕМИ СИСТЕМАМИ 1-5)
     // =========================================================================
     class GorodnyaGameApp {
       constructor() {
@@ -741,15 +664,12 @@
       initSystems() {
         this.sound = new SoundEngine();
 
-        // 1. Движок ультра-текстурирования и шейдеров (Часть 4)
+        // Часть 4: Ультра-текстуры и декали
         this.textureEngine = new UltraTextureEngine(this.renderer);
-
-        // 2. Городня с фотореалистичными материалами
         this.cityMap = new GorodnyaCityMap(this.scene, this.textureEngine);
-
-        // 3. Декали и микро-детали окружения (люки, решетки, знаки улиц)
         this.decalScatter = new DecalScatterSystem(this.scene, this.textureEngine);
 
+        // Часть 1 и 2: Игрок, Камера, AI, Физика
         this.particles = new ParticleSystem3D(this.scene);
         this.player = new CharacterController(this.scene, this.sound);
         this.tpCamera = new ThirdPersonCamera(this.camera, this.renderer.domElement);
@@ -757,8 +677,15 @@
         this.shopSystem = new ShopAndMissionSystem(this.scene, this.sound);
         this.radarHUD = new RadarAndHUD(document.getElementById('radar-canvas'));
 
-        // Инициализация систем Части 3 через Bootstrap
+        // Часть 3: Интерьеры, Тюнинг, Оружие, Погода, Телефон
         GameBootstrap.initAll(this);
+
+        // Часть 5: Оптимизация (LOD), Разрушаемые пропсы, Радио, Активности и Главное меню
+        this.lodManager = new ChunkLODManager(this.scene);
+        this.destructibleProps = new DestructiblePropSystem(this.scene, this.sound);
+        this.radio = new ProceduralRadio(this.sound);
+        this.sideActivities = new CitySideActivities(this.scene, this.sound);
+        this.mainMenu = new MainMenuAndSettings(this);
 
         this.input = { forward: false, backward: false, left: false, right: false, sprint: false, jump: false, handbrake: false };
       }
@@ -776,8 +703,27 @@
             this.input.handbrake = true;
           }
 
-          if (k === 'f' || k === 'e') this.toggleVehicleInteraction();
+          if (k === 'f' || k === 'e') {
+            this.toggleVehicleInteraction();
+            // Проверка рыбалки
+            if (!this.player.inVehicle) this.sideActivities.interactFishing(this.player);
+            // Проверка подработки Новой Почты у отделения №2
+            if (this.player.position.distanceTo(new THREE.Vector3(-180, 0, -140)) < 12) {
+              this.sideActivities.startCourierJob(this.player);
+            }
+          }
 
+          // Радио в машине на R
+          if (k === 'r' && this.player.inVehicle) {
+            this.radio.toggleStation();
+          }
+
+          // Режим Такси на T
+          if (k === 't') {
+            this.sideActivities.toggleTaxiMode(this.player);
+          }
+
+          // Выбор оружия 1-4
           if (['1', '2', '3', '4'].includes(e.key)) {
             this.combat.selectWeapon(parseInt(e.key), this.player.group);
             const wNames = { 1: '👊 КУЛАКИ', 2: '🏏 БИТА', 3: '🔫 ПІСТОЛЕТ', 4: '💥 АК-47' };
@@ -799,14 +745,9 @@
         });
 
         window.addEventListener('mousedown', e => {
-          if (e.button === 0 && !this.player.inVehicle && document.getElementById('intro-overlay').style.display === 'none') {
+          if (e.button === 0 && !this.player.inVehicle && !this.mainMenu.inMenu) {
             this.combat.attack(this.player, this.camera, this.particles, this.aiCity);
           }
-        });
-
-        document.getElementById('start-game-btn').addEventListener('click', () => {
-          this.sound.init();
-          document.getElementById('intro-overlay').style.display = 'none';
         });
       }
 
@@ -818,6 +759,7 @@
           this.activeVehiclePhysics = null;
           this.sound.stopEngine();
           this.sound.setDriftSkid(0);
+          this.radio.stop();
           document.getElementById('interaction-prompt').style.display = 'none';
         } else {
           for (let v of this.cityMap.vehicles) {
@@ -853,9 +795,20 @@
           const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
           lastTime = currentTime;
 
+          // Облет камеры в главном меню
+          if (this.mainMenu.inMenu) {
+            this.mainMenu.updateCameraFlyover(delta, this.camera);
+            this.renderer.render(this.scene, this.camera);
+            return;
+          }
+
+          // Физика авто или персонаж
           if (this.activeVehiclePhysics) {
             this.activeVehiclePhysics.update(delta, this.input, 1.0, this.cityMap.collisionBoxes, this.particles);
             this.player.position.copy(this.activeVehiclePhysics.mesh.position);
+
+            // Проверка разрушаемого окружения (сбивание знаков, урн, заборов)
+            this.destructibleProps.checkVehicleCollisions(this.activeVehiclePhysics);
 
             if (this.input.sprint) {
               this.tuning.triggerNitro(delta, this.activeVehiclePhysics, this.particles, this.camera);
@@ -874,15 +827,20 @@
             this.combat.triggerWasted(this.player);
           }
 
+          // Умная камера
           const targetPos = this.player.inVehicle ? this.player.inVehicle.mesh.position : this.player.position;
           const spd = this.activeVehiclePhysics ? this.activeVehiclePhysics.speed : 0;
           this.tpCamera.update(delta, targetPos, spd, this.cityMap.collisionBoxes);
 
+          // Обновление AI, погоды, разрушений, LOD и активностей
           this.aiCity.update(delta, this.player.position, this.player.wantedStars, this.particles);
           this.particles.update(delta);
           this.weather.update(delta, this.player.position);
           this.combat.update(delta, this.player, this.particles);
           this.shopSystem.update(delta, this.player);
+          this.destructibleProps.update(delta, this.player.position);
+          this.lodManager.update(this.player.position);
+          this.sideActivities.update(this.player);
 
           const activeShop = this.shopSystem.checkShopTriggers(this.player);
           if (activeShop && !this.player.inVehicle) {
