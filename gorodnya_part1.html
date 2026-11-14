@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Городня 3D: Частина 1 (3D Географія та PBR)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Ubuntu:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #0b0f19; font-family: 'Ubuntu', sans-serif; color: #fff; }
+    #webgl-canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+    #ui-hud {
+      position: absolute; top: 20px; left: 24px; z-index: 20;
+      background: rgba(15, 23, 42, 0.88); border: 2px solid #38bdf8;
+      padding: 16px 22px; border-radius: 10px; box-shadow: 0 0 25px rgba(0,0,0,0.8);
+      max-width: 420px;
+    }
+    #ui-hud h1 { font-family: 'Teko', sans-serif; font-size: 38px; color: #38bdf8; margin: 0; line-height: 1; letter-spacing: 2px; }
+    #ui-hud p { font-size: 13px; color: #94a3b8; margin: 6px 0 12px 0; }
+    .poi-list { font-size: 12px; color: #e2e8f0; display: flex; flex-direction: column; gap: 4px; }
+    .poi-list span b { color: #f1c40f; }
+    #cam-hint {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9); border: 1px solid #64748b;
+      padding: 8px 20px; border-radius: 6px; font-size: 14px; color: #38bdf8; z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-canvas"></div>
+
+  <div id="ui-hud">
+    <h1>ГОРОДНЯ 3D • ЧАСТИНА 1</h1>
+    <p>Реальна 3D-географія міста Городня (3000x3000м) з процедурними PBR-матеріалами.</p>
+    <div class="poi-list">
+      <span>🛒 <b>Супермаркет «АТБ»</b> (вул. Чернігівська, 5)</span>
+      <span>🏬 <b>«Аврора Мультимаркет»</b> (вул. 1-го Травня, 19)</span>
+      <span>📦 <b>«Нова Пошта»</b> (відділення №1 та №2)</span>
+      <span>🎪 <b>Центральний Базар</b> (торгові ряди та кіоски)</span>
+      <span>🏥 <b>Аптека «Подорожник»</b> (неоновий хрест) та АНЦ</span>
+      <span>🏛 <b>Міська Рада та Сквер</b></span>
+      <span>✈️ <b>Військовий Аеродром</b> (смуга ПАГ-14 у лісі)</span>
+      <span>🚉 <b>Ж/Д Вокзал «Городня»</b> та дизель-поїзд</span>
+      <span>🌊 <b>Річка Смяч, міст та озеро Делдачков</b></span>
+    </div>
+  </div>
+
+  <div id="cam-hint">
+    🎮 Керування вільною камерою: <b>W, A, S, D / Стрілки</b> — політ, <b>Миша</b> — огляд на 360°
+  </div>
+
+  <!-- СКРИПТ ЧАСТИ 1 -->
+  <script src="gorodnya_part1.js"></script>
+
+  <!-- СВОБОДНАЯ КАМЕРА И ИНИЦИАЛИЗАЦИЯ ЧАСТИ 1 -->
+  <script>
+    class GorodnyaPart1App {
+      constructor() {
+        this.container = document.getElementById('webgl-canvas');
+        this.initThree();
+        this.world = new GorodnyaPart1World(this.scene);
+
+        // Экспорт в глобальный хук для Части 2
+        window.GorodnyaWorld = {
+          scene: this.scene,
+          camera: this.camera,
+          renderer: this.renderer,
+          collisionBoxes: this.world.collisionBoxes,
+          world: this.world
+        };
+
+        this.setupFreeFlightCamera();
+      }
+
+      initThree() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0b0f19);
+        this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.0018);
+
+        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 3500);
+        this.camera.position.set(0, 45, -120);
+        this.camera.lookAt(0, 5, -180); // Смотрит на АТБ
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.container.appendChild(this.renderer.domElement);
+
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.4);
+        sun.position.set(200, 350, 150);
+        sun.castShadow = true;
+        this.scene.add(sun);
+
+        const hemi = new THREE.HemisphereLight(0x38bdf8, 0x1e293b, 0.7);
+        this.scene.add(hemi);
+
+        window.addEventListener('resize', () => {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+      }
+
+      setupFreeFlightCamera() {
+        this.keys = {};
+        this.yaw = 0;
+        this.pitch = -0.25;
+        this.isMouseDown = false;
+        this.prevMouse = { x: 0, y: 0 };
+
+        window.addEventListener('keydown', e => { this.keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
+
+        window.addEventListener('mousedown', e => {
+          this.isMouseDown = true;
+          this.prevMouse = { x: e.clientX, y: e.clientY };
+        });
+        window.addEventListener('mouseup', () => { this.isMouseDown = false; });
+        window.addEventListener('mousemove', e => {
+          if (!this.isMouseDown) return;
+          const dx = e.clientX - this.prevMouse.x;
+          const dy = e.clientY - this.prevMouse.y;
+          this.yaw -= dx * 0.004;
+          this.pitch = Math.max(-1.4, Math.min(1.4, this.pitch - dy * 0.004));
+          this.prevMouse = { x: e.clientX, y: e.clientY };
+        });
+      }
+
+      start() {
+        let lastTime = performance.now();
+
+        const animate = (currentTime) => {
+          requestAnimationFrame(animate);
+          const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
+          lastTime = currentTime;
+
+          // Движение свободной камеры
+          const speed = this.keys['shift'] ? 120.0 : 45.0;
+          const fwd = new THREE.Vector3(
+            Math.sin(this.yaw) * Math.cos(this.pitch),
+            Math.sin(this.pitch),
+            -Math.cos(this.yaw) * Math.cos(this.pitch)
+          ).normalize();
+
+          const right = new THREE.Vector3(Math.cos(this.yaw), 0, Math.sin(this.yaw)).normalize();
+
+          if (this.keys['w'] || this.keys['arrowup']) this.camera.position.addScaledVector(fwd, speed * delta);
+          if (this.keys['s'] || this.keys['arrowdown']) this.camera.position.addScaledVector(fwd, -speed * delta);
+          if (this.keys['a'] || this.keys['arrowleft']) this.camera.position.addScaledVector(right, -speed * delta);
+          if (this.keys['d'] || this.keys['arrowright']) this.camera.position.addScaledVector(right, speed * delta);
+          if (this.keys['q']) this.camera.position.y += speed * 0.6 * delta;
+          if (this.keys['e']) this.camera.position.y -= speed * 0.6 * delta;
+
+          // Ориентация камеры
+          const target = this.camera.position.clone().add(fwd);
+          this.camera.lookAt(target);
+
+          this.renderer.render(this.scene, this.camera);
+        };
+
+        requestAnimationFrame(animate);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const app = new GorodnyaPart1App();
+      app.start();
+    });
+  </script>
+</body>
+</html>
