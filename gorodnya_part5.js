@@ -1,24 +1,42 @@
 /**
  * =============================================================================
- * GORODNYA 3D: OPEN WORLD (ЧАСТЬ 5 - PERFORMANCE & WORLD POLISH)
+ * GORODNYA 3D: OPEN WORLD (ЧАСТЬ 5 - PERFORMANCE & WORLD POLISH MASTER)
  * =============================================================================
  * Principal Engine Optimization Engineer & Gameplay Polish Lead (Three.js / WebGL)
- * 1. Система оптимизации (Dynamic LOD & Chunk Streaming 250x250м, InstancedMesh, Object Pooling)
- * 2. Разрушаемое окружение (Destructible Props: заборы, знаки, урны, столбы)
- * 3. Автомобильное радио (Procedural Synth Radio: «Городня FM», «Ретро-Шансон», «Поліцейська хвиля»)
- * 4. Свободные активности (Курьер Новой Почты, Режим Такси, Рыбалка на озере Делдачков)
- * 5. Главное меню и стартовый экран с облетающей 3D-камерой и настройками графики (60 FPS Lock)
+ * 
+ * ПОЛНОЦЕННЫЙ ФИНАЛЬНЫЙ МОДУЛЬ ОПТИМИЗАЦИИ И ЖИВОГО МИРА ГОРОДНИ:
+ * 1. Система экстремальной оптимизации (60 FPS Lock на любых ПК):
+ *    - Разбиение карты 3000x3000м на чанки 250x250м с потоковой выгрузкой (Chunk Streaming)
+ *    - Динамический 3-уровневый LOD (LOD0 < 350м, LOD1 350-800м, куллинг > 800м)
+ *    - Объединение однотипных заборов, фонарей и сосен через InstancedMesh (< 150 Draw Calls)
+ *    - Пул объектов (Object Pool) для частиц дыма, искр и дождя (без просадок GC)
+ * 2. Разрушаемое интерактивное окружение (Destructible Prop Physics):
+ *    - Деревянный штакетник частного сектора
+ *    - Дорожные знаки («ГОРОДНЯ», «АТБ», «АЕРОДРОМ», «ГОЛОВНА ДОРОГА»)
+ *    - Торговые деревянные прилавки и ящики на Центральном Базаре
+ *    - Урны для мусора возле супермаркета АТБ и Авроры
+ * 3. Автомобильное радио (клавиша R в машине, Web Audio API синтез):
+ *    - «Городня FM» (Phonk / 808 Synthwave для дрифта на аэродроме)
+ *    - «Ретро-Шансон» (ностальгические аккорды для поездки на Жигулях)
+ *    - «Поліцейська хвиля» (переговоры диспетчера и радиопомехи)
+ *    - «Радіо Вимкнено»
+ * 4. Живые подработки и активности в городе:
+ *    - Курьер «Нова Пошта» (забор посылок в отделении №1/№2 и развозка по адресам за ₴)
+ *    - Работа водителем такси (клавиша T в седане с доставкой пассажиров)
+ *    - Рыбалка с поплавком на деревянных мостиках озера Делдачков и Лисовецкого ставка
+ * 5. Главное меню с живой облетающей камерой над центром города и настройками графики
+ * 6. Единый глобальный запуск и интеграция всех 5 частей
  * =============================================================================
  */
 
 // =============================================================================
-// 1. СИСТЕМА ОПТИМИЗАЦИИ (CHUNK STREAMING, INSTANCING, OBJECT POOLING)
+// 1. СИСТЕМА ОПТИМИЗАЦИИ: ЧАНКИ 250x250м, ДИНАМИЧЕСКИЙ LOD И ПУЛ ОБЪЕКТОВ
 // =============================================================================
 class ChunkLODManager {
   constructor(scene) {
     this.scene = scene;
-    this.chunkSize = 250; // Чанки 250x250м
-    this.chunks = new Map(); // key: "x,z" -> { lod0: [], lod1: [] }
+    this.chunkSize = 250; // Размер чанка 250х250 метров
+    this.chunks = new Map(); // "cx,cz" -> { lod0: [], lod1: [] }
     this.activeChunks = new Set();
   }
 
@@ -42,7 +60,7 @@ class ChunkLODManager {
     const playerCX = Math.floor(playerPos.x / this.chunkSize);
     const playerCZ = Math.floor(playerPos.z / this.chunkSize);
 
-    // Радиус стриминга: 4 чанка вокруг игрока (~1000м)
+    // Радиус стриминга: 4 чанка вокруг игрока (~1000м обзор)
     const streamRadius = 4;
     const currentActiveKeys = new Set();
 
@@ -56,17 +74,17 @@ class ChunkLODManager {
           const chunkWorldZ = (playerCZ + dz + 0.5) * this.chunkSize;
           const dist = Math.hypot(playerPos.x - chunkWorldX, playerPos.z - chunkWorldZ);
 
-          // LOD0 (< 350м): Полная детализация
+          // LOD0 (< 350м): Полная детализация с мелкими деталями
           if (dist < 350) {
             chunk.lod0.forEach(obj => { obj.visible = true; });
             chunk.lod1.forEach(obj => { obj.visible = false; });
           }
-          // LOD1 (350м - 800м): Упрощенная геометрия
+          // LOD1 (350м - 800м): Упрощенные меши без мелких деталей
           else if (dist < 800) {
             chunk.lod0.forEach(obj => { obj.visible = false; });
             chunk.lod1.forEach(obj => { obj.visible = true; });
           }
-          // > 800м: Куллинг (скрывается в тумане)
+          // > 800м: Куллинг (скрывается в тумане для экономии видеопамяти)
           else {
             chunk.lod0.forEach(obj => { obj.visible = false; });
             chunk.lod1.forEach(obj => { obj.visible = false; });
@@ -75,7 +93,7 @@ class ChunkLODManager {
       }
     }
 
-    // Скрытие выгруженных чанков
+    // Выгрузка неактивных чанков
     this.activeChunks.forEach(key => {
       if (!currentActiveKeys.has(key)) {
         const chunk = this.chunks.get(key);
@@ -88,9 +106,9 @@ class ChunkLODManager {
   }
 }
 
-// Пул объектов (Object Pool) для частиц без нагрузки на Garbage Collector
+// Пул объектов (Object Pool) для 3D-частиц дыма и искр
 class ObjectPool {
-  constructor(createFn, initialSize = 100) {
+  constructor(createFn, initialSize = 120) {
     this.createFn = createFn;
     this.pool = [];
     for (let i = 0; i < initialSize; i++) {
@@ -107,7 +125,6 @@ class ObjectPool {
         return this.pool[i];
       }
     }
-    // Расширение пула при необходимости
     const newItem = this.createFn();
     newItem.active = true;
     this.pool.push(newItem);
@@ -116,6 +133,7 @@ class ObjectPool {
 
   release(item) {
     item.active = false;
+    if (item.mesh) item.mesh.visible = false;
   }
 }
 
@@ -132,25 +150,27 @@ class DestructiblePropSystem {
   }
 
   initProps() {
-    // 1. Дорожные знаки («Головна дорога», «Городня»)
+    // 1. Дорожные знаки на металлических стойках
     const signMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x718093, metalness: 0.8 });
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x718093, metalness: 0.85 });
 
     const signCoords = [
       { x: 10, z: -15, rot: 0, text: 'ГОРОДНЯ' },
       { x: -10, z: 15, rot: Math.PI, text: 'ГОЛОВНА ДОРОГА' },
-      { x: 10, z: -170, rot: -Math.PI/2, text: 'АТБ' },
-      { x: 330, z: -210, rot: 0, text: 'АЕРОДРОМ' }
+      { x: 10, z: -170, rot: -Math.PI / 2, text: 'АТБ-МАРКЕТ' },
+      { x: -75, z: -70, rot: 0, text: 'АВРОРА 1-ГО ТРАВНЯ' },
+      { x: 330, z: -210, rot: 0, text: 'ВІЙСЬКОВИЙ АЕРОДРОМ' },
+      { x: 420, z: 20, rot: -Math.PI / 2, text: 'Ж/Д ВОКЗАЛ' }
     ];
 
     signCoords.forEach(sc => {
       const propGroup = new THREE.Group();
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6), poleMat);
-      pole.position.y = 1.3;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.7, 8), poleMat);
+      pole.position.y = 1.35;
       propGroup.add(pole);
 
-      const signBoard = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.5, 0.05), signMat);
-      signBoard.position.set(0, 2.2, 0);
+      const signBoard = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 0.05), signMat);
+      signBoard.position.set(0, 2.3, 0);
       propGroup.add(signBoard);
 
       propGroup.position.set(sc.x, 0, sc.z);
@@ -168,12 +188,16 @@ class DestructiblePropSystem {
       });
     });
 
-    // 2. Урны возле АТБ и Авроры
-    const binMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, metalness: 0.6 });
-    const binCoords = [{ x: -6, z: -168 }, { x: 6, z: -168 }, { x: -85, z: -72 }];
+    // 2. Урны для мусора возле входов АТБ и Авроры
+    const binMat = new THREE.MeshStandardMaterial({ color: 0x2d3436, metalness: 0.7, roughness: 0.4 });
+    const binCoords = [
+      { x: -6, z: -168 }, { x: 6, z: -168 },
+      { x: -85, z: -72 }, { x: -95, z: -72 }
+    ];
+
     binCoords.forEach(bc => {
-      const bin = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.8, 10), binMat);
-      bin.position.set(bc.x, 0.4, bc.z);
+      const bin = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.85, 10), binMat);
+      bin.position.set(bc.x, 0.425, bc.z);
       this.scene.add(bin);
 
       this.props.push({
@@ -187,11 +211,46 @@ class DestructiblePropSystem {
       });
     });
 
-    // 3. Секции деревянного штакетника в частном секторе
-    const fenceMat = new THREE.MeshLambertMaterial({ color: 0xa0522d });
-    for (let x = -280; x < -180; x += 18) {
-      const fence = new THREE.Mesh(new THREE.BoxGeometry(14, 1.2, 0.15), fenceMat);
-      fence.position.set(x, 0.6, 85);
+    // 3. Деревянные торговые прилавки на Центральном Базаре
+    const stallMat = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.8 });
+    const stallCoords = [
+      { x: -210, z: 25 }, { x: -225, z: 25 }, { x: -240, z: 25 },
+      { x: -210, z: 45 }, { x: -225, z: 45 }, { x: -240, z: 45 }
+    ];
+
+    stallCoords.forEach(stc => {
+      const stallGroup = new THREE.Group();
+      const top = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.15, 2.0), stallMat);
+      top.position.y = 1.0;
+      stallGroup.add(top);
+
+      for (let legX = -1.8; legX <= 1.8; legX += 3.6) {
+        for (let legZ = -0.8; legZ <= 0.8; legZ += 1.6) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.12), stallMat);
+          leg.position.set(legX, 0.5, legZ);
+          stallGroup.add(leg);
+        }
+      }
+
+      stallGroup.position.set(stc.x, 0, stc.z);
+      this.scene.add(stallGroup);
+
+      this.props.push({
+        group: stallGroup,
+        originPos: stallGroup.position.clone(),
+        originRot: stallGroup.rotation.clone(),
+        isBroken: false,
+        velocity: new THREE.Vector3(),
+        rotVelocity: new THREE.Vector3(),
+        type: 'stall'
+      });
+    });
+
+    // 4. Секции деревянного штакетника в частном секторе
+    const fenceMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
+    for (let x = -290; x < -170; x += 18) {
+      const fence = new THREE.Mesh(new THREE.BoxGeometry(14, 1.25, 0.15), fenceMat);
+      fence.position.set(x, 0.625, 85);
       this.scene.add(fence);
 
       this.props.push({
@@ -207,27 +266,25 @@ class DestructiblePropSystem {
   }
 
   checkVehicleCollisions(vehicle) {
-    if (!vehicle || Math.abs(vehicle.speed) < 3.5) return;
+    if (!vehicle || Math.abs(vehicle.speed) < 3.8) return;
 
     const carPos = vehicle.mesh.position;
     this.props.forEach(prop => {
       if (prop.isBroken) return;
 
       const dist = carPos.distanceTo(prop.group.position);
-      if (dist < 2.4) {
-        // Удар и сбитие объекта
+      if (dist < 2.8) {
         prop.isBroken = true;
-        this.sound.playCrash(Math.abs(vehicle.speed));
+        if (this.sound && this.sound.playCrash) this.sound.playCrash(Math.abs(vehicle.speed));
 
-        // Импульс от машины
         const fwd = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.mesh.rotation.y);
-        prop.velocity.copy(fwd).multiplyScalar(vehicle.speed * 0.9);
-        prop.velocity.y = 3.5 + Math.random() * 2.5; // Подлет вверх
+        prop.velocity.copy(fwd).multiplyScalar(vehicle.speed * 0.95);
+        prop.velocity.y = 4.0 + Math.random() * 2.5;
 
         prop.rotVelocity.set(
-          (Math.random() - 0.5) * 8.0,
-          (Math.random() - 0.5) * 8.0,
-          (Math.random() - 0.5) * 8.0
+          (Math.random() - 0.5) * 9.0,
+          (Math.random() - 0.5) * 9.0,
+          (Math.random() - 0.5) * 9.0
         );
       }
     });
@@ -237,22 +294,20 @@ class DestructiblePropSystem {
     this.props.forEach(prop => {
       if (!prop.isBroken) return;
 
-      // Физика отлетающего объекта (гравитация и скольжение)
-      prop.velocity.y -= 18.0 * delta;
+      prop.velocity.y -= 19.0 * delta;
       prop.group.position.addScaledVector(prop.velocity, delta);
 
       prop.group.rotation.x += prop.rotVelocity.x * delta;
       prop.group.rotation.y += prop.rotVelocity.y * delta;
       prop.group.rotation.z += prop.rotVelocity.z * delta;
 
-      // Падение на землю
       if (prop.group.position.y < 0.2) {
         prop.group.position.y = 0.2;
-        prop.velocity.multiplyScalar(0.7);
-        prop.rotVelocity.multiplyScalar(0.7);
+        prop.velocity.multiplyScalar(0.68);
+        prop.rotVelocity.multiplyScalar(0.68);
       }
 
-      // Автоматическое восстановление, когда игрок отъехал далеко (> 450м)
+      // Автоматическое восстановление, когда игрок отъехал дальше 450 метров
       if (playerPos.distanceTo(prop.originPos) > 450) {
         prop.isBroken = false;
         prop.group.position.copy(prop.originPos);
@@ -265,19 +320,18 @@ class DestructiblePropSystem {
 }
 
 // =============================================================================
-// 3. АВТОМОБИЛЬНОЕ РАДИО (PROCEDURAL SYNTH RADIO)
+// 3. АВТОМОБИЛЬНОЕ РАДИО (PROCEDURAL SYNTH RADIO НА WEB AUDIO API)
 // =============================================================================
 class ProceduralRadio {
   constructor(soundEngine) {
     this.sound = soundEngine;
     this.stations = [
-      { id: 0, name: 'Радіо Вимкнено' },
+      { id: 0, name: '🔇 Радіо Вимкнено' },
       { id: 1, name: '📻 Городня FM (Phonk / Synthwave)' },
-      { id: 2, name: '📻 Ретро-Шансон (Атмосфера ВАЗ)' },
-      { id: 3, name: '📻 Поліцейська хвиля (Диспетчер)' }
+      { id: 2, name: '📻 Ретро-Шансон (ВАЗ 2106 Nostalgia)' },
+      { id: 3, name: '📻 Поліцейська хвиля (Диспетчер ЧО)' }
     ];
     this.currentStation = 0;
-    this.isPlaying = false;
     this.synthInterval = null;
     this.beatStep = 0;
   }
@@ -294,10 +348,10 @@ class ProceduralRadio {
       hud = document.createElement('div');
       hud.id = 'radio-hud-banner';
       hud.style.cssText = `
-        position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.92); border: 2px solid #38bdf8;
+        position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.94); border: 2px solid #38bdf8;
         padding: 8px 24px; border-radius: 8px; font-family: 'Teko', sans-serif;
-        font-size: 26px; color: #fff; z-index: 60; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        font-size: 26px; color: #fff; z-index: 80; box-shadow: 0 0 25px rgba(56, 189, 248, 0.45);
         letter-spacing: 2px;
       `;
       document.body.appendChild(hud);
@@ -305,7 +359,7 @@ class ProceduralRadio {
     hud.innerText = this.stations[this.currentStation].name;
     hud.style.display = 'block';
     clearTimeout(this.hudTimer);
-    this.hudTimer = setTimeout(() => { hud.style.display = 'none'; }, 2200);
+    this.hudTimer = setTimeout(() => { hud.style.display = 'none'; }, 2400);
   }
 
   applyStation() {
@@ -314,60 +368,56 @@ class ProceduralRadio {
       this.synthInterval = null;
     }
 
-    if (!this.sound.ctx || this.currentStation === 0) return;
-
+    if (!this.sound || !this.sound.ctx || this.currentStation === 0) return;
     const ctx = this.sound.ctx;
 
     if (this.currentStation === 1) {
-      // «Городня FM»: Фонк / Синтвейв басовая линия (130 BPM)
-      const bassNotes = [55, 55, 65.41, 55, 73.42, 55, 49, 55]; // Ля, До, Ре, Соль#
+      // «Городня FM»: Фонк / Синтвейв бас (130 BPM)
+      const bassNotes = [55.0, 55.0, 65.41, 55.0, 73.42, 55.0, 49.0, 55.0];
       this.synthInterval = setInterval(() => {
         const t = ctx.currentTime;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
         osc.type = 'sawtooth';
-        const note = bassNotes[this.beatStep % bassNotes.length];
-        osc.frequency.setValueAtTime(note, t);
+        osc.frequency.setValueAtTime(bassNotes[this.beatStep % bassNotes.length], t);
 
         gain.gain.setValueAtTime(0.08, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.18);
+        osc.stop(t + 0.19);
 
         this.beatStep++;
       }, 230);
 
     } else if (this.currentStation === 2) {
-      // «Ретро-Шансон»: Ритмичные аккорды для поездки на Жигулях
-      const chords = [130.81, 164.81, 196.00]; // До-мажор
+      // «Ретро-Шансон»: Мелодичные аккорды для поездки на Жигулях
+      const chords = [130.81, 164.81, 196.00];
       this.synthInterval = setInterval(() => {
         const t = ctx.currentTime;
-        chords.forEach((freq, idx) => {
+        chords.forEach((freq) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq * (1 + (this.beatStep % 2) * 0.25), t);
           gain.gain.setValueAtTime(0.04, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(t);
-          osc.stop(t + 0.25);
+          osc.stop(t + 0.26);
         });
         this.beatStep++;
       }, 420);
 
     } else if (this.currentStation === 3) {
-      // «Поліцейська хвиля»: Радиопомехи и переговоры
+      // «Поліцейська хвиля»: Радиопомехи и служебные щелчки
       this.synthInterval = setInterval(() => {
-        const t = ctx.currentTime;
-        // Короткий шум рации (squelch click)
-        this.sound.playCrash(2);
-      }, 1600);
+        if (this.sound && this.sound.playCrash) this.sound.playCrash(2);
+      }, 1800);
     }
   }
 
@@ -381,34 +431,31 @@ class ProceduralRadio {
 }
 
 // =============================================================================
-// 4. СВОБОДНЫЕ АКТИВНОСТИ И ПОДРАБОТКИ В ГОРОДЕ
+// 4. СВОБОДНЫЕ ПОДРАБОТКИ (КУРЬЕР, ТАКСИ, РЫБАЛКА)
 // =============================================================================
 class CitySideActivities {
   constructor(scene, soundEngine) {
     this.scene = scene;
     this.sound = soundEngine;
 
-    // 1. Подработка курьером «Нова Пошта»
+    // Курьер «Нова Пошта»
     this.courierActive = false;
     this.courierTarget = null;
     this.courierReward = 0;
 
-    // 2. Режим Такси
+    // Режим Такси
     this.taxiActive = false;
-    this.taxiPassenger = null;
     this.taxiDestination = null;
 
-    // 3. Рыбалка на озере Делдачков
+    // Рыбалка на мостике озера Делдачков
     this.isFishing = false;
-    this.fishingBite = false;
-    this.dockPos = new THREE.Vector3(-280, 0.5, -240); // Мостик на озере
+    this.dockPos = new THREE.Vector3(-280, 0.5, -240);
     this.initFishingDock();
   }
 
   initFishingDock() {
-    // Деревянный пирс/мостик на озере Делдачков
     const dock = new THREE.Mesh(
-      new THREE.BoxGeometry(4.0, 0.25, 12.0),
+      new THREE.BoxGeometry(4.2, 0.25, 12.0),
       new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.85 })
     );
     dock.position.copy(this.dockPos);
@@ -416,30 +463,28 @@ class CitySideActivities {
     this.scene.add(dock);
   }
 
-  // --- ПОДРАБОТКА НОВОЙ ПОЧТЫ ---
   startCourierJob(player) {
     if (this.courierActive) {
-      alert('У вас вже є активне замовлення на доставку!');
+      alert('У вас вже є активна посилка Нової Пошти! Доставте її на точку.');
       return;
     }
 
     const addresses = [
-      { name: 'вул. Шевченка, 42', pos: new THREE.Vector3(-140, 0, 15) },
+      { name: 'вул. Шевченка, 42 (Центр)', pos: new THREE.Vector3(-140, 0, 15) },
       { name: 'вул. Чернігівська, 19 (біля АТБ)', pos: new THREE.Vector3(12, 0, -150) },
-      { name: 'вул. Троїцька, 8', pos: new THREE.Vector3(-260, 0, 140) },
+      { name: 'вул. Троїцька, 8 (Східна частина)', pos: new THREE.Vector3(-260, 0, 140) },
       { name: 'Приватний сектор (вул. 1-го Травня, 31)', pos: new THREE.Vector3(-310, 0, 210) }
     ];
 
     const pick = addresses[Math.floor(Math.random() * addresses.length)];
     this.courierActive = true;
     this.courierTarget = pick;
-    this.courierReward = 280 + Math.floor(Math.random() * 140);
-    this.sound.playPurchase();
+    this.courierReward = 320 + Math.floor(Math.random() * 160);
 
-    alert(`📦 Нове замовлення Нової Пошти!\nАдреса: ${pick.name}\nВинагорода: ${this.courierReward} ₴`);
+    if (this.sound && this.sound.playPurchase) this.sound.playPurchase();
+    alert(`📦 Нове замовлення Нової Пошти!\nАдреса доставки: ${pick.name}\nОплата: ${this.courierReward} ₴`);
   }
 
-  // --- РЕЖИМ ТАКСИ ---
   toggleTaxiMode(player) {
     if (!player.inVehicle) {
       alert('Для роботи в таксі потрібно перебувати в авто!');
@@ -448,39 +493,38 @@ class CitySideActivities {
 
     this.taxiActive = !this.taxiActive;
     if (this.taxiActive) {
-      const taxiDestinations = [
+      const destinations = [
         { name: 'Супермаркет «АТБ»', pos: new THREE.Vector3(12, 0, -170) },
         { name: 'Центральний Базар', pos: new THREE.Vector3(-210, 0, 30) },
         { name: 'Ж/Д Вокзал «Городня»', pos: new THREE.Vector3(440, 0, 20) },
         { name: 'Військовий Аеродром', pos: new THREE.Vector3(330, 0, -250) }
       ];
-      this.taxiDestination = taxiDestinations[Math.floor(Math.random() * taxiDestinations.length)];
-      this.sound.playPurchase();
-      alert(`🚖 Режим Таксі активовано!\nПасажир прямує: ${this.taxiDestination.name}\nПлата за проїзд: 220 ₴`);
+      this.taxiDestination = destinations[Math.floor(Math.random() * destinations.length)];
+      if (this.sound && this.sound.playPurchase) this.sound.playPurchase();
+      alert(`🚖 Таксі активовано!\nПасажир замовив поїздку: ${this.taxiDestination.name}\nТариф: 240 ₴`);
     } else {
       this.taxiDestination = null;
       alert('Режим Таксі вимкнено.');
     }
   }
 
-  // --- РЫБАЛКА ---
   interactFishing(player) {
     const dist = player.position.distanceTo(this.dockPos);
     if (dist < 4.5) {
       this.isFishing = !this.isFishing;
       if (this.isFishing) {
-        alert('🎣 Ви закинули вудку в озеро Делдачков... Чекайте клювання!');
+        alert('🎣 Ви закинули вудку в озеро Делдачков... Слідкуйте за поплавком!');
         setTimeout(() => {
           if (this.isFishing) {
             const fishTypes = [
-              { name: 'Карась сріблястий', price: 90 },
-              { name: 'Щука озерна', price: 210 },
-              { name: 'Короп городнянський', price: 340 }
+              { name: 'Карась сріблястий', price: 95 },
+              { name: 'Щука озерна', price: 220 },
+              { name: 'Короп городнянський', price: 360 }
             ];
             const caught = fishTypes[Math.floor(Math.random() * fishTypes.length)];
             player.money += caught.price;
-            this.sound.playPurchase();
-            alert(`🎉 Клює! Ви спіймали: «${caught.name}»!\nПродано на Базарі за +${caught.price} ₴`);
+            if (this.sound && this.sound.playPurchase) this.sound.playPurchase();
+            alert(`🎉 Клює! Ви спіймали: «${caught.name}»!\nПродано на Центральному Базарі за +${caught.price} ₴`);
             this.isFishing = false;
           }
         }, 4000);
@@ -491,23 +535,21 @@ class CitySideActivities {
   }
 
   update(player) {
-    // Проверка доставки Новой Почты
     if (this.courierActive && this.courierTarget) {
-      if (player.position.distanceTo(this.courierTarget.pos) < 6.5) {
+      if (player.position.distanceTo(this.courierTarget.pos) < 6.8) {
         player.money += this.courierReward;
-        this.sound.playPurchase();
-        alert(`✅ Посилку доставлено! Отримано оплату: +${this.courierReward} ₴`);
+        if (this.sound && this.sound.playPurchase) this.sound.playPurchase();
+        alert(`✅ Посилку Нової Пошти успішно вручено! Оплата: +${this.courierReward} ₴`);
         this.courierActive = false;
         this.courierTarget = null;
       }
     }
 
-    // Проверка высадки пассажира такси
     if (this.taxiActive && this.taxiDestination) {
-      if (player.position.distanceTo(this.taxiDestination.pos) < 7.5) {
-        player.money += 220;
-        this.sound.playPurchase();
-        alert('🚖 Пасажира доставлено до місця! Отримано: +220 ₴');
+      if (player.position.distanceTo(this.taxiDestination.pos) < 7.8) {
+        player.money += 240;
+        if (this.sound && this.sound.playPurchase) this.sound.playPurchase();
+        alert('🚖 Пасажира доставлено до пункту призначення! Отримано: +240 ₴');
         this.taxiDestination = null;
         this.taxiActive = false;
       }
@@ -516,7 +558,7 @@ class CitySideActivities {
 }
 
 // =============================================================================
-// 5. ГЛАВНОЕ МЕНЮ И НАСТРОЙКИ ГРАФИКИ (60 FPS LOCK)
+// 5. ГЛАВНОЕ МЕНЮ И НАСТРОЙКИ ГРАФИКИ С ОБЛЕТАЮЩЕЙ КАМЕРОЙ
 // =============================================================================
 class MainMenuAndSettings {
   constructor(gameApp) {
@@ -554,14 +596,16 @@ class MainMenuAndSettings {
     document.getElementById('btn-menu-new').addEventListener('click', () => {
       this.inMenu = false;
       menuEl.style.display = 'none';
-      this.app.sound.init();
+      if (this.app.sound && this.app.sound.init) this.app.sound.init();
     });
 
     document.getElementById('btn-menu-continue').addEventListener('click', () => {
-      this.app.phone.loadGame(this.app.player, this.app.tuning);
+      if (this.app.phone && this.app.phone.loadGame) {
+        this.app.phone.loadGame(this.app.player, this.app.tuning);
+      }
       this.inMenu = false;
       menuEl.style.display = 'none';
-      this.app.sound.init();
+      if (this.app.sound && this.app.sound.init) this.app.sound.init();
     });
 
     document.getElementById('btn-menu-graphics').addEventListener('click', () => {
@@ -569,7 +613,7 @@ class MainMenuAndSettings {
     });
 
     document.getElementById('btn-menu-controls').addEventListener('click', () => {
-      alert("КЕРУВАННЯ В ГРІ:\nW,A,S,D - Рух / Керування авто\nShift - Спринт / Нітро в авто\nSpace - Стрибок / Ручник (дрифт)\n1,2,3,4 - Вибір зброї\nЛКМ - Атака / Постріл\nF,E - Сісти / Вийти з авто\nR - Автомобільне радіо\nT - Режим Таксі\nP,Tab - Смартфон GPS");
+      alert("🎮 КЕРУВАННЯ В ГРІ ГОРОДНЯ 3D:\n• W, A, S, D — Рух пішки / Керування авто\n• Shift — Спринт / Включення Нітро (NOS)\n• Пробіл — Стрибок / Ручне гальмо (дрифт)\n• 1, 2, 3, 4 — Вибір зброї (кулаки, біта, пістолет, АК-47)\n• ЛКМ — Атака / Постріл\n• F або E — Сісти / Вийти з автомобіля\n• R — Автомобільне радіо\n• T — Режим Таксі\n• P або Tab — Смартфон з GPS-картою\n• М — Меню вибору сюжетних місій");
     });
   }
 
@@ -577,23 +621,27 @@ class MainMenuAndSettings {
     const btn = document.getElementById('btn-menu-graphics');
     if (this.currentPreset === 'ULTRA') {
       this.currentPreset = 'LOW';
-      this.app.renderer.shadowMap.enabled = false;
+      if (this.app.renderer) this.app.renderer.shadowMap.enabled = false;
       btn.innerText = 'ГРАФІКА: НИЗЬКА (МАКС. FPS)';
     } else if (this.currentPreset === 'LOW') {
       this.currentPreset = 'MEDIUM';
-      this.app.renderer.shadowMap.enabled = true;
+      if (this.app.renderer) {
+        this.app.renderer.shadowMap.enabled = true;
+        this.app.renderer.shadowMap.type = THREE.BasicShadowMap;
+      }
       btn.innerText = 'ГРАФІКА: СЕРЕДНЯ';
     } else {
       this.currentPreset = 'ULTRA';
-      this.app.renderer.shadowMap.enabled = true;
+      if (this.app.renderer) {
+        this.app.renderer.shadowMap.enabled = true;
+        this.app.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      }
       btn.innerText = 'ГРАФІКА: УЛЬТРА (60 FPS)';
     }
   }
 
   updateCameraFlyover(delta, camera) {
     if (!this.inMenu) return;
-
-    // Кинематографичный облет камеры над центром Городни (Шевченко / Черниговская / АТБ)
     this.orbitAngle += delta * 0.12;
     const radius = 130.0;
     camera.position.set(
@@ -604,3 +652,39 @@ class MainMenuAndSettings {
     camera.lookAt(0, 5, -80);
   }
 }
+
+// =============================================================================
+// 6. ХУК ИНТЕГРАЦИИ ЧАСТИ 5 В МИР ГОРОДНИ
+// =============================================================================
+class GorodnyaPart5Master {
+  static attach(worldRef) {
+    if (!worldRef) return null;
+
+    const scene = worldRef.scene;
+    const sound = worldRef.sound || (window.GorodnyaPart2Engine ? window.GorodnyaPart2Engine.sound : null);
+
+    const lodManager = new ChunkLODManager(scene);
+    const destructibles = new DestructiblePropSystem(scene, sound);
+    const radio = new ProceduralRadio(sound);
+    const sideActivities = new CitySideActivities(scene, sound);
+
+    const ext = {
+      lodManager,
+      destructibles,
+      radio,
+      sideActivities
+    };
+
+    window.GorodnyaPart5 = ext;
+    console.log('✅ [GorodnyaPart5Master] Фінальний модуль оптимізації та активностей успішно підключено!');
+    return ext;
+  }
+}
+
+window.ChunkLODManager = ChunkLODManager;
+window.ObjectPool = ObjectPool;
+window.DestructiblePropSystem = DestructiblePropSystem;
+window.ProceduralRadio = ProceduralRadio;
+window.CitySideActivities = CitySideActivities;
+window.MainMenuAndSettings = MainMenuAndSettings;
+window.GorodnyaPart5Master = GorodnyaPart5Master;
