@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>PetSnap: Коты и Собаки</title>
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Tailwind CSS & Google Fonts -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Ubuntu:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS & JS for GPS Radar -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Ubuntu', sans-serif;
+      background-color: #0b0f19;
+      color: #fff;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    .font-game {
+      font-family: 'Fredoka', cursive;
+    }
+    /* Hide scrollbars */
+    ::-webkit-scrollbar { display: none; }
+    
+    /* Viewfinder animations */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      50% { transform: scale(1.05); opacity: 0.5; }
+      100% { transform: scale(0.95); opacity: 0.9; }
+    }
+    .pulse-focus {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+
+    @keyframes pet-bob {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-12px) rotate(2deg); }
+    }
+    .pet-animated {
+      animation: pet-bob 2.2s infinite ease-in-out;
+    }
+
+    /* Shutter flash */
+    @keyframes flash-anim {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .flash-screen {
+      animation: flash-anim 0.35s ease-out forwards;
+    }
+
+    /* Custom Leaflet Map styling */
+    .leaflet-container {
+      background: #0f172a !important;
+      font-family: 'Ubuntu', sans-serif !important;
+    }
+    .leaflet-tile {
+      filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) !important;
+    }
+    .leaflet-control-attribution, .leaflet-control-zoom {
+      display: none !important;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen relative">
+
+  <!-- TOP HEADER / STATUS BAR -->
+  <header class="w-full z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 flex items-center justify-between shadow-lg">
+    <div class="flex items-center gap-2">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center shadow-lg shadow-orange-500/30">
+        <span class="text-xl">📸</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-game text-lg font-bold tracking-wide text-amber-400">PetSnap</span>
+          <span id="player-level-badge" class="bg-indigo-600/80 text-[10px] font-bold px-1.5 py-0.5 rounded text-indigo-200">LVL 1</span>
+        </div>
+        <!-- XP Bar -->
+        <div class="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden mt-0.5">
+          <div id="player-xp-bar" class="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-300" style="width: 25%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Currencies: Bones & Fish -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700">
+        <span class="text-sm">🦴</span>
+        <span id="bones-count" class="font-game font-bold text-xs text-amber-300">150</span>
+      </div>
+      <div class="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700">
+        <span class="text-sm">🐟</span>
+        <span id="fish-count" class="font-game font-bold text-xs text-cyan-300">120</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT (SCREEN CONTAINER) -->
+  <main class="flex-1 w-full relative overflow-hidden">
+
+    <!-- ===================================================================== -->
+    <!-- 1. SCREEN: INTERACTIVE MAP (КАРТА РАЙОНА & РАДАР ПИТОМЦЕВ) -->
+    <!-- ===================================================================== -->
+    <div id="screen-map" class="screen-view absolute inset-0 flex flex-col z-10">
+      <!-- Leaflet Map Container -->
+      <div id="map-container" class="w-full h-full relative"></div>
+
+      <!-- Floating Radar Info Card -->
+      <div class="absolute top-4 left-4 right-4 z-[400] bg-slate-900/90 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/60 shadow-xl flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400">
+            <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          </div>
+          <div>
+            <div class="text-xs text-slate-400 font-medium">GPS-Локатор питомцев</div>
+            <div id="radar-status-text" class="text-sm font-bold text-slate-100">Рядом замечено 4 питомца</div>
+          </div>
+        </div>
+        <button onclick="game.scanNearby()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-game text-xs font-bold px-3 py-2 rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-1 active:scale-95 transition-all">
+          <span>📡</span> Сканировать
+        </button>
+      </div>
+
+      <!-- Quick Roam Controls (Walk virtual steps if user is indoors) -->
+      <div class="absolute bottom-20 right-4 z-[400] flex flex-col gap-2">
+        <button onclick="game.simulateMove(0.0004, 0)" class="w-12 h-12 bg-slate-800/90 text-white rounded-2xl border border-slate-700 shadow-xl flex items-center justify-center active:scale-90 text-xl font-bold">⬆️</button>
+        <div class="flex gap-2">
+          <button onclick="game.simulateMove(0, -0.0005)" class="w-12 h-12 bg-slate-800/90 text-white rounded-2xl border border-slate-700 shadow-xl flex items-center justify-center active:scale-90 text-xl font-bold">⬅️</button>
+          <button onclick="game.simulateMove(0, 0.0005)" class="w-12 h-12 bg-slate-800/90 text-white rounded-2xl border border-slate-700 shadow-xl flex items-center justify-center active:scale-90 text-xl font-bold">➡️</button>
+        </div>
+        <button onclick="game.simulateMove(-0.0004, 0)" class="w-12 h-12 bg-slate-800/90 text-white rounded-2xl border border-slate-700 shadow-xl flex items-center justify-center active:scale-90 text-xl font-bold">⬇️</button>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 2. SCREEN: CAMERA / SCANNER (ФОТООХОТА И ВИДОИСКАТЕЛЬ) -->
+    <!-- ===================================================================== -->
+    <div id="screen-camera" class="screen-view absolute inset-0 z-20 hidden bg-black flex flex-col">
+      <!-- Live Video / Simulated AR Backdrop -->
+      <div id="camera-viewport" class="relative w-full h-full overflow-hidden flex items-center justify-center">
+        <!-- Native Camera Feed -->
+        <video id="webcam-feed" autoplay playsinline muted class="w-full h-full object-cover"></video>
+        
+        <!-- Fallback Street/Park Canvas when camera is denied or disabled -->
+        <canvas id="simulated-camera-canvas" class="absolute inset-0 w-full h-full object-cover hidden"></canvas>
+
+        <!-- Shutter Flash Effect Overlay -->
+        <div id="shutter-flash" class="absolute inset-0 bg-white pointer-events-none opacity-0 z-50"></div>
+
+        <!-- Target / Pet Active Stage -->
+        <div id="pet-stage" class="absolute pointer-events-none transition-all duration-300" style="width: 220px; height: 220px;">
+          <!-- Moving Pet Sprite (SVG / Canvas) -->
+          <div id="active-pet-sprite" class="w-full h-full pet-animated flex items-center justify-center"></div>
+          <!-- Pet Attention / Mood Indicator -->
+          <div id="pet-mood-bubble" class="absolute -top-6 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-900 font-game font-bold text-xs px-2.5 py-0.5 rounded-full shadow-lg opacity-0 transition-opacity">
+            🐾 Мяу?
+          </div>
+        </div>
+
+        <!-- Viewfinder Reticle & HUD Overlay -->
+        <div class="absolute inset-0 pointer-events-none border-[18px] border-black/40 flex flex-col justify-between p-4">
+          <!-- Top Viewfinder Info -->
+          <div class="flex items-center justify-between text-xs text-emerald-400 font-mono tracking-wider">
+            <div class="flex items-center gap-1.5 bg-black/60 px-3 py-1 rounded-full border border-emerald-500/30">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              <span>AF • LOCK [98%]</span>
+            </div>
+            <div id="hunt-target-name" class="bg-black/60 px-3 py-1 rounded-full text-amber-300 font-game text-sm border border-amber-500/30">
+              Ищем питомца...
+            </div>
+          </div>
+
+          <!-- Central Crosshair Focus Ring -->
+          <div class="w-56 h-56 mx-auto my-auto rounded-3xl border-2 border-dashed border-amber-400/80 pulse-focus relative flex items-center justify-center">
+            <div class="w-4 h-4 border-t-2 border-l-2 border-amber-400 absolute top-2 left-2"></div>
+            <div class="w-4 h-4 border-t-2 border-r-2 border-amber-400 absolute top-2 right-2"></div>
+            <div class="w-4 h-4 border-b-2 border-l-2 border-amber-400 absolute bottom-2 left-2"></div>
+            <div class="w-4 h-4 border-b-2 border-r-2 border-amber-400 absolute bottom-2 right-2"></div>
+            <div class="w-2 h-2 bg-amber-400/60 rounded-full"></div>
+          </div>
+
+          <!-- Bottom Status Line -->
+          <div class="flex justify-between items-end text-[11px] text-slate-300 font-mono">
+            <span id="camera-resolution-label">FHD 1080P • 60 FPS</span>
+            <span id="camera-focus-score" class="text-amber-400 font-bold">Фокус: 85%</span>
+          </div>
+        </div>
+
+        <!-- CAMERA CONTROLS BAR (Bottom) -->
+        <div class="absolute bottom-20 left-0 right-0 px-6 py-4 flex items-center justify-around z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+          <!-- Squeak / Bait Button (Приманить звуком) -->
+          <button onclick="game.attractPet()" class="w-14 h-14 rounded-full bg-slate-800/80 border-2 border-amber-400/60 text-2xl flex flex-col items-center justify-center shadow-lg active:scale-90 transition-transform">
+            <span>📣</span>
+            <span class="text-[9px] font-game text-amber-300 -mt-1">Позвать</span>
+          </button>
+
+          <!-- BIG SHUTTER BUTTON (Кнопка спуска фото) -->
+          <button id="btn-shutter" onclick="game.snapPhoto()" class="w-20 h-20 rounded-full border-4 border-white bg-gradient-to-tr from-amber-400 to-orange-500 shadow-2xl shadow-orange-500/50 flex items-center justify-center active:scale-95 transition-transform">
+            <div class="w-14 h-14 rounded-full border-2 border-white/60 bg-white/30 backdrop-blur-sm"></div>
+          </button>
+
+          <!-- Back to Map Button -->
+          <button onclick="game.switchTab('map')" class="w-14 h-14 rounded-full bg-slate-800/80 border-2 border-slate-600 text-white flex flex-col items-center justify-center shadow-lg active:scale-90 transition-transform">
+            <span class="text-xl">🗺️</span>
+            <span class="text-[9px] font-game text-slate-300 -mt-1">Карта</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 3. SCREEN: COLLECTION / ALBUM (АЛЬБОМ ПОЙМАННЫХ ПИТОМЦЕВ) -->
+    <!-- ===================================================================== -->
+    <div id="screen-album" class="screen-view absolute inset-0 z-10 hidden flex flex-col bg-slate-950 p-4 pb-24 overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-2xl font-game font-bold text-amber-400">Мой Питомник</h2>
+          <p id="album-counter-text" class="text-xs text-slate-400">Собрано 0 из 16 редких пород</p>
+        </div>
+        <div class="flex gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+          <button onclick="game.filterAlbum('all')" id="filter-all" class="album-filter-btn px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500 text-slate-950 font-game">Все</button>
+          <button onclick="game.filterAlbum('cat')" id="filter-cat" class="album-filter-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white font-game">🐱 Коты</button>
+          <button onclick="game.filterAlbum('dog')" id="filter-dog" class="album-filter-btn px-2.5 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-white font-game">🐶 Собаки</button>
+        </div>
+      </div>
+
+      <!-- Cards Grid -->
+      <div id="album-grid" class="grid grid-cols-2 gap-3.5">
+        <!-- Rendered dynamically by PetSnap.renderAlbum() -->
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 4. SCREEN: SHOP & BAITS (МАГАЗИН ПРИМАНОК И ФИЛЬТРОВ) -->
+    <!-- ===================================================================== -->
+    <div id="screen-shop" class="screen-view absolute inset-0 z-10 hidden flex flex-col bg-slate-950 p-4 pb-24 overflow-y-auto">
+      <div class="mb-4">
+        <h2 class="text-2xl font-game font-bold text-cyan-400">Зоомагазин & Апгрейды</h2>
+        <p class="text-xs text-slate-400">Покупайте приманки для редких зверей и улучшайте объектив</p>
+      </div>
+
+      <div class="space-y-3.5">
+        <!-- Item 1: Кошачья мята -->
+        <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between shadow-md">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl">
+              🌿
+            </div>
+            <div>
+              <div class="font-game font-bold text-sm text-emerald-300">Кошачья Мята</div>
+              <div class="text-[11px] text-slate-400">Останавливает котиков в кадре на 6 сек</div>
+            </div>
+          </div>
+          <button onclick="game.buyItem('catnip', 50, 'fish')" class="bg-slate-800 hover:bg-emerald-600 border border-slate-700 text-xs font-game font-bold px-3 py-2 rounded-xl text-cyan-300 flex items-center gap-1 active:scale-95 transition-all">
+            <span>50</span> <span>🐟</span>
+          </button>
+        </div>
+
+        <!-- Item 2: Сахарная косточка -->
+        <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between shadow-md">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl">
+              🍖
+            </div>
+            <div>
+              <div class="font-game font-bold text-sm text-amber-300">Сахарная Косточка</div>
+              <div class="text-[11px] text-slate-400">Привлекает редких собак на 15 минут</div>
+            </div>
+          </div>
+          <button onclick="game.buyItem('bone_treat', 60, 'bones')" class="bg-slate-800 hover:bg-amber-600 border border-slate-700 text-xs font-game font-bold px-3 py-2 rounded-xl text-amber-300 flex items-center gap-1 active:scale-95 transition-all">
+            <span>60</span> <span>🦴</span>
+          </button>
+        </div>
+
+        <!-- Item 3: Золотой объектив -->
+        <div class="bg-slate-900 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between shadow-md">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-2xl">
+              🔍
+            </div>
+            <div>
+              <div class="font-game font-bold text-sm text-purple-300">Золотой Объектив PRO</div>
+              <div class="text-[11px] text-slate-400">+25% шанс поймать Legendary питомца</div>
+            </div>
+          </div>
+          <button onclick="game.buyItem('lens_pro', 200, 'bones')" class="bg-slate-800 hover:bg-purple-600 border border-slate-700 text-xs font-game font-bold px-3 py-2 rounded-xl text-amber-300 flex items-center gap-1 active:scale-95 transition-all">
+            <span>200</span> <span>🦴</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- PHOTO RESULT MODAL (ОКНО ОЦЕНКИ СНИМКА И НАГРАД) -->
+  <!-- ===================================================================== -->
+  <div id="photo-result-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl flex flex-col items-center animate-scale-up">
+      <!-- Title Badge -->
+      <div id="result-rarity-badge" class="bg-amber-500 text-slate-950 font-game font-bold text-xs uppercase px-3 py-1 rounded-full mb-3 shadow-lg">
+        LEGENDARY SHOT!
+      </div>
+      
+      <!-- Polarized Photo Card Container -->
+      <div class="w-full bg-white p-3 rounded-2xl shadow-xl flex flex-col items-center">
+        <div id="result-photo-preview" class="w-full h-56 rounded-xl bg-slate-800 overflow-hidden relative flex items-center justify-center">
+          <!-- Rendered Snapshot Canvas -->
+        </div>
+        <div class="w-full pt-2 flex items-center justify-between text-slate-800 font-game font-bold">
+          <span id="result-pet-name">Корги Персик</span>
+          <span id="result-stars" class="text-amber-500 text-lg">★★★★★</span>
+        </div>
+      </div>
+
+      <!-- Rating Breakdown -->
+      <div class="w-full mt-4 bg-slate-800/80 rounded-2xl p-3 border border-slate-700 flex justify-around text-center text-xs">
+        <div>
+          <div class="text-slate-400">Центровка</div>
+          <div id="score-center" class="font-bold text-emerald-400">96%</div>
+        </div>
+        <div>
+          <div class="text-slate-400">Фокус</div>
+          <div id="score-focus" class="font-bold text-emerald-400">92%</div>
+        </div>
+        <div>
+          <div class="text-slate-400">Награда</div>
+          <div id="reward-coins" class="font-bold text-amber-400">+45 🦴</div>
+        </div>
+      </div>
+
+      <!-- Collect Button -->
+      <button onclick="game.closePhotoResult()" class="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 font-game font-bold text-base py-3 rounded-2xl shadow-xl shadow-orange-500/30 active:scale-95 transition-all">
+        Забрать в Коллекцию!
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PET DETAIL MODAL (КАРТОЧКА ПИТОМЦА В АЛЬБОМЕ) -->
+  <!-- ===================================================================== -->
+  <div id="pet-detail-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-5 shadow-2xl relative">
+      <button onclick="game.closePetDetail()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold">✕</button>
+      <div class="flex items-center gap-3 mb-4">
+        <div id="detail-avatar" class="w-16 h-16 rounded-2xl bg-slate-800 p-2 flex items-center justify-center text-3xl border border-slate-700"></div>
+        <div>
+          <div id="detail-rarity" class="text-[10px] font-game font-bold uppercase text-amber-400">Rare</div>
+          <h3 id="detail-name" class="font-game text-xl font-bold text-white">Имя</h3>
+          <p id="detail-breed" class="text-xs text-slate-400">Порода</p>
+        </div>
+      </div>
+      <p id="detail-desc" class="text-xs text-slate-300 leading-relaxed mb-4 bg-slate-800/60 p-3 rounded-xl border border-slate-700/60"></p>
+      
+      <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+        <span id="detail-date">Пойман: 14.11.2026</span>
+        <button onclick="game.playPetSound()" class="flex items-center gap-1 text-cyan-400 font-bold hover:underline">
+          <span>🔊</span> Голос
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR (НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ) -->
+  <nav class="w-full bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 py-2 px-6 flex items-center justify-between z-40 shadow-2xl">
+    <button onclick="game.switchTab('map')" id="nav-btn-map" class="nav-item flex flex-col items-center gap-1 text-cyan-400 transition-colors">
+      <span class="text-2xl">🗺️</span>
+      <span class="font-game text-[11px] font-bold">Карта</span>
+    </button>
+    <button onclick="game.switchTab('camera')" id="nav-btn-camera" class="nav-item flex flex-col items-center gap-1 text-slate-400 hover:text-amber-400 transition-colors">
+      <div class="w-12 h-12 -mt-5 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/40 text-2xl active:scale-95 transition-transform">
+        📸
+      </div>
+      <span class="font-game text-[11px] font-bold text-amber-400">Сканер</span>
+    </button>
+    <button onclick="game.switchTab('album')" id="nav-btn-album" class="nav-item flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400 transition-colors">
+      <span class="text-2xl">📖</span>
+      <span class="font-game text-[11px] font-bold">Альбом</span>
+    </button>
+    <button onclick="game.switchTab('shop')" id="nav-btn-shop" class="nav-item flex flex-col items-center gap-1 text-slate-400 hover:text-cyan-400 transition-colors">
+      <span class="text-2xl">🛒</span>
+      <span class="font-game text-[11px] font-bold">Магазин</span>
+    </button>
+  </nav>
+
+  <!-- ===================================================================== -->
+  <!-- PETSNAP JAVASCRIPT GAME ENGINE -->
+  <!-- ===================================================================== -->
+  <script>
+    // --- 1. PROCEDURAL AUDIO SYNTHESIZER (WEB AUDIO API) ---
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      }
+      playShutter() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.16);
+      }
+      playMeow() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(750, this.ctx.currentTime + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.45);
+        gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.35, this.ctx.currentTime + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.45);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.46);
+      }
+      playBark() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(90, this.ctx.currentTime + 0.18);
+        gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.19);
+      }
+      playCoin() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(987.77, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(1318.51, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.36);
+      }
+      playSqueak() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(2400, this.ctx.currentTime + 0.08);
+        osc.frequency.exponentialRampToValueAtTime(1100, this.ctx.currentTime + 0.16);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.22);
+      }
+    }
+
+    // --- 2. PET DATABASE (КАТАЛОГ ПОРОД И SVG-ИЛЛЮСТРАЦИЙ) ---
+    const PET_CATALOG = [
+      // КОТЫ
+      {
+        id: 'cat_red',
+        type: 'cat',
+        name: 'Рыжик Барсик',
+        breed: 'Рыжий полосатый',
+        rarity: 'Common',
+        emoji: '🐱',
+        color: '#f39c12',
+        desc: 'Любопытный дворовый кот с пушистым хвостом. Обожает греться на капотах машин и ловить солнечных зайчиков.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="28" fill="#e67e22"/><polygon points="26,35 34,14 44,30" fill="#d35400"/><polygon points="74,35 66,14 56,30" fill="#d35400"/><ellipse cx="40" cy="50" rx="4" ry="6" fill="#2c3e50"/><ellipse cx="60" cy="50" rx="4" ry="6" fill="#2c3e50"/><polygon points="50,57 46,62 54,62" fill="#e74c3c"/><path d="M42,65 Q50,72 58,65" stroke="#2c3e50" stroke-width="2" fill="none"/><line x1="22" y1="58" x2="40" y2="60" stroke="#7f8c8d" stroke-width="1.5"/><line x1="20" y1="65" x2="38" y2="64" stroke="#7f8c8d" stroke-width="1.5"/><line x1="78" y1="58" x2="60" y2="60" stroke="#7f8c8d" stroke-width="1.5"/><line x1="80" y1="65" x2="62" y2="64" stroke="#7f8c8d" stroke-width="1.5"/></svg>`
+      },
+      {
+        id: 'cat_british',
+        type: 'cat',
+        name: 'Смоки',
+        breed: 'Британская короткошёрстная',
+        rarity: 'Common',
+        emoji: '🐈‍⬛',
+        color: '#95a5a6',
+        desc: 'Аристократичный серый джентльмен с янтарными глазами. Степенно ходит по заборам и мурчит как трактор.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="30" fill="#7f8c8d"/><polygon points="24,35 32,15 42,30" fill="#57606f"/><polygon points="76,35 68,15 58,30" fill="#57606f"/><circle cx="38" cy="50" r="6" fill="#f1c40f"/><circle cx="38" cy="50" r="2.5" fill="#1e272e"/><circle cx="62" cy="50" r="6" fill="#f1c40f"/><circle cx="62" cy="50" r="2.5" fill="#1e272e"/><polygon points="50,58 46,63 54,63" fill="#e74c3c"/></svg>`
+      },
+      {
+        id: 'cat_siamese',
+        type: 'cat',
+        name: 'Симба',
+        breed: 'Сиамская кошка',
+        rarity: 'Rare',
+        emoji: '😼',
+        color: '#f5cd79',
+        desc: 'Грациозная восточная красавица с лазурными сапфировыми глазами и темной маской на мордочке.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="28" fill="#f5cd79"/><polygon points="26,35 34,14 44,30" fill="#303952"/><polygon points="74,35 66,14 56,30" fill="#303952"/><ellipse cx="50" cy="58" rx="16" ry="14" fill="#303952"/><circle cx="40" cy="50" r="5" fill="#00d2d3"/><circle cx="60" cy="50" r="5" fill="#00d2d3"/></svg>`
+      },
+      {
+        id: 'cat_mainecoon',
+        type: 'cat',
+        name: 'Шерхан',
+        breed: 'Мейн-кун Великан',
+        rarity: 'Epic',
+        emoji: '🦁',
+        color: '#c0392b',
+        desc: 'Царственный лесной кот внушительных размеров с кисточками на ушах и роскошной львиной гривой.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="32" fill="#b9770e"/><polygon points="22,35 30,8 42,28" fill="#784212"/><polygon points="78,35 70,8 58,28" fill="#784212"/><circle cx="30" cy="8" r="3" fill="#d35400"/><circle cx="70" cy="8" r="3" fill="#d35400"/><circle cx="38" cy="50" r="5" fill="#2ecc71"/><circle cx="62" cy="50" r="5" fill="#2ecc71"/></svg>`
+      },
+      {
+        id: 'cat_sphynx',
+        type: 'cat',
+        name: 'Рамзес III',
+        breed: 'Канадский сфинкс',
+        rarity: 'Legendary',
+        emoji: '👽',
+        color: '#e0a96d',
+        desc: 'Загадочный и мудрый бесшёрстный кот, похожий на древнеегипетскую статуэтку. Любит тепло и ласку.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="26" fill="#e0a96d"/><polygon points="20,38 28,10 40,30" fill="#d08b49"/><polygon points="80,38 72,10 60,30" fill="#d08b49"/><ellipse cx="38" cy="50" rx="5" ry="7" fill="#8e44ad"/><ellipse cx="62" cy="50" rx="5" ry="7" fill="#8e44ad"/></svg>`
+      },
+
+      // СОБАКИ
+      {
+        id: 'dog_corgi',
+        type: 'dog',
+        name: 'Персик',
+        breed: 'Вельш-корги пемброк',
+        rarity: 'Rare',
+        emoji: '🦊',
+        color: '#f39c12',
+        desc: 'Неутомимый коротколапый пушистик с большими ушами-локаторами и вечно улыбающейся доброй мордочкой.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="56" r="30" fill="#e67e22"/><ellipse points="22,34 30,10 44,28" cx="28" cy="24" rx="10" ry="18" fill="#d35400"/><ellipse cx="72" cy="24" rx="10" ry="18" fill="#d35400"/><ellipse cx="50" cy="62" rx="18" ry="14" fill="#ffffff"/><circle cx="38" cy="50" r="4.5" fill="#2c3e50"/><circle cx="62" cy="50" r="4.5" fill="#2c3e50"/><ellipse cx="50" cy="60" rx="6" ry="4.5" fill="#1e272e"/><path d="M44,68 Q50,76 56,68" stroke="#e74c3c" stroke-width="2.5" fill="none"/></svg>`
+      },
+      {
+        id: 'dog_husky',
+        type: 'dog',
+        name: 'Буран',
+        breed: 'Сибирский хаски',
+        rarity: 'Epic',
+        emoji: '🐺',
+        color: '#3498db',
+        desc: 'Северный волк с пронзительными небесно-голубыми глазами и серебристой маской. Любит бегать и петь песни.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="30" fill="#bdc3c7"/><polygon points="26,34 32,12 44,28" fill="#2c3e50"/><polygon points="74,34 68,12 56,28" fill="#2c3e50"/><path d="M35,35 Q50,50 65,35 L65,70 Q50,85 35,70 Z" fill="#2c3e50"/><circle cx="40" cy="50" r="5" fill="#00d2d3"/><circle cx="60" cy="50" r="5" fill="#00d2d3"/><ellipse cx="50" cy="62" rx="6" ry="5" fill="#1e272e"/></svg>`
+      },
+      {
+        id: 'dog_pug',
+        type: 'dog',
+        name: 'Жорик',
+        breed: 'Мопс складчатый',
+        rarity: 'Common',
+        emoji: '🐶',
+        color: '#d5b991',
+        desc: 'Забавный толстячок со складочками на носу и большими преданными глазами. Обожает сопеть и клянчить сосиски.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="30" fill="#d5b991"/><ellipse cx="26" cy="38" rx="8" ry="10" fill="#4b382a"/><ellipse cx="74" cy="38" rx="8" ry="10" fill="#4b382a"/><ellipse cx="50" cy="62" rx="16" ry="12" fill="#2d221a"/><circle cx="36" cy="50" r="6" fill="#1a1410"/><circle cx="64" cy="50" r="6" fill="#1a1410"/><circle cx="38" cy="48" r="2" fill="#fff"/><circle cx="66" cy="48" r="2" fill="#fff"/></svg>`
+      },
+      {
+        id: 'dog_shiba',
+        type: 'dog',
+        name: 'Хатико',
+        breed: 'Сиба-ину (Doge)',
+        rarity: 'Legendary',
+        emoji: '🐕',
+        color: '#e67e22',
+        desc: 'Легендарный японский самурай и герой мемов. Невероятно преданный, хитрый и улыбчивый пёс.',
+        svg: `<svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl"><circle cx="50" cy="55" r="30" fill="#d35400"/><polygon points="26,34 34,14 44,28" fill="#e67e22"/><polygon points="74,34 66,14 56,28" fill="#e67e22"/><ellipse cx="50" cy="64" rx="20" ry="15" fill="#fcf3cf"/><ellipse cx="38" cy="50" rx="3.5" ry="5" fill="#17202a"/><ellipse cx="62" cy="50" rx="3.5" ry="5" fill="#17202a"/><polygon points="50,58 45,63 55,63" fill="#17202a"/></svg>`
+      }
+    ];
+
+    // --- 3. STORAGE MANAGER (PERSISTENCE) ---
+    class StorageManager {
+      static load() {
+        try {
+          const raw = localStorage.getItem('petsnap_save_v1');
+          if (raw) return JSON.parse(raw);
+        } catch (e) {
+          console.warn('Storage load fallback:', e);
+        }
+        return {
+          level: 1,
+          xp: 0,
+          bones: 150,
+          fish: 120,
+          collection: [],
+          inventory: { catnip: 1, bone_treat: 1, lens_pro: 0 }
+        };
+      }
+      static save(data) {
+        try {
+          localStorage.setItem('petsnap_save_v1', JSON.stringify(data));
+        } catch (e) {
+          console.error('Storage save error:', e);
+        }
+      }
+    }
+
+    // --- 4. MAIN GAME CONTROLLER ---
+    class PetSnapGame {
+      constructor() {
+        this.sound = new SoundFX();
+        this.state = StorageManager.load();
+        this.activeTab = 'map';
+        this.map = null;
+        this.playerMarker = null;
+        this.petMarkers = [];
+        this.playerCoords = [51.892, 31.594]; // Координаты города Городня
+        this.currentHuntPet = null;
+        this.huntPetPos = { x: 50, y: 50 }; // % of viewport
+        this.petMoveInterval = null;
+        this.webcamStream = null;
+
+        this.initUI();
+        this.initMap();
+        this.updateHUD();
+      }
+
+      initUI() {
+        // Render album cards on start
+        this.renderAlbum('all');
+
+        // Check if webcam is available
+        navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
+          .then(stream => {
+            this.webcamStream = stream;
+            const video = document.getElementById('webcam-feed');
+            if (video) video.srcObject = stream;
+          })
+          .catch(() => {
+            console.log('Webcam not allowed or desktop: using procedural AR background');
+            this.setupSimulatedCamera();
+          });
+      }
+
+      setupSimulatedCamera() {
+        const canvas = document.getElementById('simulated-camera-canvas');
+        if (!canvas) return;
+        canvas.classList.remove('hidden');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let frame = 0;
+        const renderBackdrop = () => {
+          if (this.activeTab !== 'camera') {
+            requestAnimationFrame(renderBackdrop);
+            return;
+          }
+          frame++;
+          // Draw lively park background (grass, path, sky)
+          const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          grad.addColorStop(0, '#38bdf8');
+          grad.addColorStop(0.5, '#7dd3fc');
+          grad.addColorStop(0.55, '#22c55e');
+          grad.addColorStop(1, '#15803d');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Paved walkway
+          ctx.fillStyle = '#94a3b8';
+          ctx.beginPath();
+          ctx.moveTo(canvas.width * 0.2, canvas.height);
+          ctx.lineTo(canvas.width * 0.45, canvas.height * 0.55);
+          ctx.lineTo(canvas.width * 0.55, canvas.height * 0.55);
+          ctx.lineTo(canvas.width * 0.8, canvas.height);
+          ctx.fill();
+
+          requestAnimationFrame(renderBackdrop);
+        };
+        requestAnimationFrame(renderBackdrop);
+      }
+
+      updateHUD() {
+        document.getElementById('bones-count').innerText = this.state.bones;
+        document.getElementById('fish-count').innerText = this.state.fish;
+        document.getElementById('player-level-badge').innerText = `LVL ${this.state.level}`;
+        
+        const xpNeeded = this.state.level * 100;
+        const pct = Math.min(100, Math.floor((this.state.xp / xpNeeded) * 100));
+        document.getElementById('player-xp-bar').style.width = `${pct}%`;
+      }
+
+      addReward(xp, bones, fish) {
+        this.state.xp += xp;
+        this.state.bones += bones;
+        this.state.fish += fish;
+
+        const xpNeeded = this.state.level * 100;
+        if (this.state.xp >= xpNeeded) {
+          this.state.level++;
+          this.state.xp -= xpNeeded;
+          alert(`🎉 Поздравляем! Новый Уровень: ${this.state.level}!`);
+        }
+
+        StorageManager.save(this.state);
+        this.updateHUD();
+      }
+
+      switchTab(tabId) {
+        this.activeTab = tabId;
+        document.querySelectorAll('.screen-view').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('text-cyan-400', 'text-amber-400'));
+
+        const target = document.getElementById(`screen-${tabId}`);
+        if (target) target.classList.remove('hidden');
+
+        const navBtn = document.getElementById(`nav-btn-${tabId}`);
+        if (navBtn) navBtn.classList.add('text-cyan-400');
+
+        if (tabId === 'map') {
+          setTimeout(() => { if (this.map) this.map.invalidateSize(); }, 200);
+        } else if (tabId === 'camera') {
+          this.startPhotoHunt(this.currentHuntPet || PET_CATALOG[0]);
+        } else if (tabId === 'album') {
+          this.renderAlbum('all');
+        }
+      }
+
+      // --- 5. GPS MAP & RADAR ---
+      initMap() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(pos => {
+            this.playerCoords = [pos.coords.latitude, pos.coords.longitude];
+            this.buildLeafletMap();
+          }, () => {
+            this.buildLeafletMap();
+          });
+        } else {
+          this.buildLeafletMap();
+        }
+      }
+
+      buildLeafletMap() {
+        const container = document.getElementById('map-container');
+        if (!container) return;
+
+        this.map = L.map('map-container', {
+          zoomControl: false,
+          attributionControl: false
+        }).setView(this.playerCoords, 17);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19
+        }).addTo(this.map);
+
+        // Player marker (Pulsing blue radar pin)
+        const playerIcon = L.divIcon({
+          className: 'custom-player-pin',
+          html: `<div class="relative w-8 h-8 flex items-center justify-center">
+                   <div class="absolute inset-0 rounded-full bg-cyan-500 animate-ping opacity-75"></div>
+                   <div class="w-5 h-5 rounded-full bg-cyan-400 border-2 border-white shadow-lg flex items-center justify-center text-xs">🚶</div>
+                 </div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        this.playerMarker = L.marker(this.playerCoords, { icon: playerIcon }).addTo(this.map);
+
+        this.spawnNearbyPets();
+      }
+
+      simulateMove(dLat, dLng) {
+        this.playerCoords[0] += dLat;
+        this.playerCoords[1] += dLng;
+        if (this.playerMarker) this.playerMarker.setLatLng(this.playerCoords);
+        if (this.map) this.map.panTo(this.playerCoords);
+      }
+
+      spawnNearbyPets() {
+        this.petMarkers.forEach(m => this.map.removeLayer(m));
+        this.petMarkers = [];
+
+        // Spawn 4-6 random pets around player's coordinates
+        for (let i = 0; i < 5; i++) {
+          const pet = PET_CATALOG[Math.floor(Math.random() * PET_CATALOG.length)];
+          const offsetLat = (Math.random() - 0.5) * 0.0035;
+          const offsetLng = (Math.random() - 0.5) * 0.0035;
+          const petLat = this.playerCoords[0] + offsetLat;
+          const petLng = this.playerCoords[1] + offsetLng;
+
+          const petIcon = L.divIcon({
+            className: 'custom-pet-pin',
+            html: `<div class="relative w-11 h-11 rounded-2xl bg-slate-900/90 border-2 ${pet.type === 'cat' ? 'border-cyan-400' : 'border-amber-400'} shadow-xl flex items-center justify-center text-xl cursor-pointer hover:scale-110 active:scale-95 transition-all">
+                     <span>${pet.emoji}</span>
+                     <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full ${pet.rarity === 'Legendary' ? 'bg-amber-400 animate-ping' : pet.rarity === 'Epic' ? 'bg-purple-500' : 'bg-emerald-500'}"></span>
+                   </div>`,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22]
+          });
+
+          const marker = L.marker([petLat, petLng], { icon: petIcon }).addTo(this.map);
+          marker.on('click', () => {
+            this.startPhotoHunt(pet);
+          });
+          this.petMarkers.push(marker);
+        }
+
+        document.getElementById('radar-status-text').innerText = `Рядом замечено ${this.petMarkers.length} питомцев`;
+      }
+
+      scanNearby() {
+        this.sound.playCoin();
+        this.spawnNearbyPets();
+      }
+
+      // --- 6. CAMERA PHOTO HUNT MECHANICS ---
+      startPhotoHunt(pet) {
+        this.currentHuntPet = pet;
+        document.getElementById('hunt-target-name').innerText = `${pet.name} (${pet.breed})`;
+        document.getElementById('active-pet-sprite').innerHTML = pet.svg;
+        this.switchTab('camera');
+
+        // Dynamic wandering movement across viewfinder
+        if (this.petMoveInterval) clearInterval(this.petMoveInterval);
+        this.huntPetPos = { x: 50, y: 50 };
+
+        this.petMoveInterval = setInterval(() => {
+          if (this.activeTab !== 'camera') return;
+          // Random gentle wandering step
+          this.huntPetPos.x += (Math.random() - 0.5) * 22;
+          this.huntPetPos.y += (Math.random() - 0.5) * 18;
+          this.huntPetPos.x = Math.max(20, Math.min(80, this.huntPetPos.x));
+          this.huntPetPos.y = Math.max(25, Math.min(75, this.huntPetPos.y));
+
+          const stage = document.getElementById('pet-stage');
+          if (stage) {
+            stage.style.left = `calc(${this.huntPetPos.x}% - 110px)`;
+            stage.style.top = `calc(${this.huntPetPos.y}% - 110px)`;
+          }
+        }, 1100);
+      }
+
+      attractPet() {
+        this.sound.playSqueak();
+        const bubble = document.getElementById('pet-mood-bubble');
+        if (bubble) {
+          bubble.innerText = this.currentHuntPet.type === 'cat' ? '😻 Мяу!' : '🐶 Гав!';
+          bubble.style.opacity = '1';
+          setTimeout(() => { bubble.style.opacity = '0'; }, 1800);
+        }
+
+        // Pet runs towards center and pauses!
+        this.huntPetPos.x = 50 + (Math.random() - 0.5) * 8;
+        this.huntPetPos.y = 50 + (Math.random() - 0.5) * 8;
+        const stage = document.getElementById('pet-stage');
+        if (stage) {
+          stage.style.left = `calc(${this.huntPetPos.x}% - 110px)`;
+          stage.style.top = `calc(${this.huntPetPos.y}% - 110px)`;
+        }
+      }
+
+      snapPhoto() {
+        this.sound.playShutter();
+
+        // Shutter flash effect
+        const flash = document.getElementById('shutter-flash');
+        flash.classList.remove('flash-screen');
+        void flash.offsetWidth;
+        flash.classList.add('flash-screen');
+
+        if (this.currentHuntPet.type === 'cat') this.sound.playMeow();
+        else this.sound.playBark();
+
+        // Calculate Quality Score
+        const distX = Math.abs(this.huntPetPos.x - 50);
+        const distY = Math.abs(this.huntPetPos.y - 50);
+        const centerScore = Math.max(50, Math.round(100 - (distX + distY) * 2.5));
+        const focusScore = Math.min(99, Math.round(75 + Math.random() * 24));
+        const totalRating = (centerScore + focusScore) / 2;
+
+        let stars = '★★★☆☆';
+        if (totalRating > 92) stars = '★★★★★';
+        else if (totalRating > 80) stars = '★★★★☆';
+
+        const rewardCoins = Math.round(20 + totalRating * 0.4);
+        const rewardXP = Math.round(15 + totalRating * 0.35);
+
+        // Add to persistent collection
+        const entry = {
+          id: this.currentHuntPet.id,
+          name: this.currentHuntPet.name,
+          breed: this.currentHuntPet.breed,
+          rarity: this.currentHuntPet.rarity,
+          type: this.currentHuntPet.type,
+          stars: stars,
+          date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+          svg: this.currentHuntPet.svg,
+          color: this.currentHuntPet.color
+        };
+
+        // Don't add duplicate id or update with best shot
+        const existingIdx = this.state.collection.findIndex(p => p.id === entry.id);
+        if (existingIdx === -1) {
+          this.state.collection.push(entry);
+        } else {
+          this.state.collection[existingIdx] = entry;
+        }
+
+        // Give reward
+        if (this.currentHuntPet.type === 'cat') {
+          this.addReward(rewardXP, 0, rewardCoins);
+        } else {
+          this.addReward(rewardXP, rewardCoins, 0);
+        }
+
+        // Show Result Modal
+        document.getElementById('result-pet-name').innerText = this.currentHuntPet.name;
+        document.getElementById('result-stars').innerText = stars;
+        document.getElementById('score-center').innerText = `${centerScore}%`;
+        document.getElementById('score-focus').innerText = `${focusScore}%`;
+        document.getElementById('reward-coins').innerText = this.currentHuntPet.type === 'cat' ? `+${rewardCoins} 🐟` : `+${rewardCoins} 🦴`;
+        document.getElementById('result-rarity-badge').innerText = `${this.currentHuntPet.rarity} SHOT!`;
+
+        // Result preview photo
+        document.getElementById('result-photo-preview').innerHTML = `
+          <div class="w-full h-full flex items-center justify-center bg-slate-800 p-4">
+            <div class="w-40 h-40">${this.currentHuntPet.svg}</div>
+          </div>`;
+
+        document.getElementById('photo-result-modal').classList.remove('hidden');
+      }
+
+      closePhotoResult() {
+        document.getElementById('photo-result-modal').classList.add('hidden');
+        this.switchTab('album');
+      }
+
+      // --- 7. ALBUM & PETDEX ---
+      renderAlbum(filter = 'all') {
+        const grid = document.getElementById('album-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const caughtIds = new Set(this.state.collection.map(c => c.id));
+        document.getElementById('album-counter-text').innerText = `Собрано ${caughtIds.size} из ${PET_CATALOG.length} редких пород`;
+
+        const filtered = PET_CATALOG.filter(p => {
+          if (filter === 'all') return true;
+          return p.type === filter;
+        });
+
+        filtered.forEach(pet => {
+          const isCaught = caughtIds.has(pet.id);
+          const caughtData = this.state.collection.find(c => c.id === pet.id);
+
+          const card = document.createElement('div');
+          card.className = `relative bg-slate-900 border ${isCaught ? 'border-amber-400/40' : 'border-slate-800'} p-3 rounded-2xl flex flex-col items-center shadow-lg transition-transform active:scale-95 cursor-pointer`;
+          
+          card.innerHTML = `
+            <div class="w-full h-28 rounded-xl ${isCaught ? 'bg-slate-800/80' : 'bg-slate-900/60 opacity-30'} flex items-center justify-center p-3 relative overflow-hidden">
+              ${isCaught ? pet.svg : '<span class="text-4xl">❓</span>'}
+              ${isCaught ? `<span class="absolute top-1.5 right-1.5 text-[10px] font-game font-bold px-1.5 py-0.5 rounded-md bg-black/60 text-amber-300">${pet.rarity}</span>` : ''}
+            </div>
+            <div class="w-full mt-2 text-center">
+              <div class="font-game font-bold text-sm ${isCaught ? 'text-white' : 'text-slate-500'} truncate">${isCaught ? pet.name : 'Не открыт'}</div>
+              <div class="text-[10px] text-slate-400 truncate">${pet.breed}</div>
+              ${isCaught ? `<div class="text-[11px] text-amber-400 font-bold mt-0.5">${caughtData.stars}</div>` : '<div class="text-[10px] text-slate-600 mt-1">Исследуйте карту</div>'}
+            </div>
+          `;
+
+          if (isCaught) {
+            card.onclick = () => this.openPetDetail(pet, caughtData);
+          }
+          grid.appendChild(card);
+        });
+
+        // Filter button active classes
+        document.querySelectorAll('.album-filter-btn').forEach(b => {
+          b.classList.remove('bg-amber-500', 'text-slate-950');
+          b.classList.add('text-slate-400');
+        });
+        const activeBtn = document.getElementById(`filter-${filter}`);
+        if (activeBtn) {
+          activeBtn.classList.remove('text-slate-400');
+          activeBtn.classList.add('bg-amber-500', 'text-slate-950');
+        }
+      }
+
+      openPetDetail(pet, caughtData) {
+        document.getElementById('detail-avatar').innerHTML = pet.svg;
+        document.getElementById('detail-name').innerText = pet.name;
+        document.getElementById('detail-breed').innerText = pet.breed;
+        document.getElementById('detail-rarity').innerText = pet.rarity;
+        document.getElementById('detail-desc').innerText = pet.desc;
+        document.getElementById('detail-date').innerText = `Пойман: ${caughtData.date || 'Сегодня'}`;
+        document.getElementById('pet-detail-modal').classList.remove('hidden');
+      }
+
+      closePetDetail() {
+        document.getElementById('pet-detail-modal').classList.add('hidden');
+      }
+
+      playPetSound() {
+        if (!this.currentHuntPet) return;
+        if (this.currentHuntPet.type === 'cat') this.sound.playMeow();
+        else this.sound.playBark();
+      }
+
+      // --- 8. SHOP ACTIONS ---
+      buyItem(itemId, cost, currency) {
+        if (this.state[currency] >= cost) {
+          this.state[currency] -= cost;
+          this.state.inventory[itemId] = (this.state.inventory[itemId] || 0) + 1;
+          StorageManager.save(this.state);
+          this.updateHUD();
+          this.sound.playCoin();
+          alert('🎉 Покупка успешна! Предмет добавлен в инвентарь.');
+        } else {
+          alert('❌ Недостаточно монет!');
+        }
+      }
+    }
+
+    // Launch game instance when DOM loads
+    window.addEventListener('DOMContentLoaded', () => {
+      window.game = new PetSnapGame();
+    });
+  </script>
+</body>
+</html>
