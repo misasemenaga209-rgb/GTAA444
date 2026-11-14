@@ -593,6 +593,12 @@ class MainMenuAndSettings {
 
     document.body.appendChild(menuEl);
 
+    window.addEventListener('keydown', (e) => {
+      if (this.inMenu && (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'c')) {
+        const btn = document.getElementById('btn-menu-new');
+        if (btn) btn.click();
+      }
+    });
     document.getElementById('btn-menu-new').addEventListener('click', () => {
       this.inMenu = false;
       menuEl.style.display = 'none';
