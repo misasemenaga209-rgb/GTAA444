@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Городня 3D: Відкритий Світ (Gorodnya 3D AAA Open World)</title>
+  <title>Городня 3D: Відкритий Світ (Gorodnya 3D Ultra AAA Edition)</title>
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -85,8 +85,6 @@
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
       margin-top: 4px;
     }
-
-    /* WEAPON HUD */
     #hud-weapon {
       background: rgba(15, 23, 42, 0.85);
       border: 2px solid #38bdf8;
@@ -501,15 +499,17 @@
     </div>
   </div>
 
-  <!-- СКРИПТЫ ЧАСТИ 2 И ЧАСТИ 3 -->
+  <!-- ПОДКЛЮЧЕНИЕ ЧАСТЕЙ 2, 3 И 4 -->
   <script src="gorodnya_part2.js"></script>
   <script src="gorodnya_part3.js"></script>
+  <script src="gorodnya_part4.js"></script>
 
-  <!-- СКРИПТ ЧАСТИ 1 И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ С BOOTSTRAP -->
+  <!-- КАРТА ГОРОДНИ С ULTRA-ШЕЙДЕРАМИ И ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ -->
   <script>
     class GorodnyaCityMap {
-      constructor(scene) {
+      constructor(scene, textureEngine) {
         this.scene = scene;
+        this.textureEngine = textureEngine;
         this.collisionBoxes = [];
         this.vehicles = [];
         this.roadsList = [];
@@ -545,8 +545,9 @@
       }
 
       buildRoads() {
-        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
-        const concreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 });
+        // Ультра-шейдер дорог (3 слоя асфальта + разметка)
+        const roadMat = this.textureEngine ? this.textureEngine.createRoadMaterial() : new THREE.MeshStandardMaterial({ color: 0x1e293b });
+        const concreteMat = this.textureEngine ? this.textureEngine.createAirfieldMaterial() : new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
 
         const cherGeo = new THREE.PlaneGeometry(18, 1100);
         const cherRoad = new THREE.Mesh(cherGeo, roadMat);
@@ -562,6 +563,7 @@
         this.scene.add(shevRoad);
         this.roadsList.push(shevRoad);
 
+        // Взлетная полоса аэродрома
         const runwayGeo = new THREE.PlaneGeometry(36, 680);
         const runway = new THREE.Mesh(runwayGeo, concreteMat);
         runway.rotation.x = -Math.PI / 2;
@@ -571,21 +573,31 @@
       }
 
       buildLandmarks() {
-        // АТБ
-        const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+        // АТБ с выветренным кирпичным фасадом и псевдо-окнами
+        const atbMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0x1e293b, false) : new THREE.MeshStandardMaterial({ color: 0x0f172a });
+        const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), atbMat);
         atbBody.position.set(0, 3.75, -180);
         atbBody.castShadow = true;
         this.scene.add(atbBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(atbBody));
 
+        // Витринные окна АТБ с псевдо-интерьером
+        if (this.textureEngine) {
+          const winMat = this.textureEngine.createParallaxWindowMaterial('atb');
+          const win = new THREE.Mesh(new THREE.PlaneGeometry(18, 3.8), winMat);
+          win.position.set(0, 3.2, -167.8);
+          this.scene.add(win);
+        }
+
         // Аврора
-        const avrBody = new THREE.Mesh(new THREE.BoxGeometry(22, 6.0, 16), new THREE.MeshStandardMaterial({ color: 0xf1c40f }));
+        const avrMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0xf1c40f, false) : new THREE.MeshStandardMaterial({ color: 0xf1c40f });
+        const avrBody = new THREE.Mesh(new THREE.BoxGeometry(22, 6.0, 16), avrMat);
         avrBody.position.set(-90, 3.0, -80);
         this.scene.add(avrBody);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(avrBody));
 
         // Базар
-        const marketMat = new THREE.MeshStandardMaterial({ color: 0xd97706 });
+        const marketMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0xd97706, true) : new THREE.MeshStandardMaterial({ color: 0xd97706 });
         for (let i = 0; i < 4; i++) {
           const stall = new THREE.Mesh(new THREE.BoxGeometry(24, 3.6, 6), marketMat);
           stall.position.set(-220, 1.8, 20 + i * 16);
@@ -600,7 +612,8 @@
         this.collisionBoxes.push(new THREE.Box3().setFromObject(npBody));
 
         // Вокзал
-        const station = new THREE.Mesh(new THREE.BoxGeometry(38, 9.0, 22), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+        const stationMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0xb45309, true) : new THREE.MeshStandardMaterial({ color: 0xb45309 });
+        const station = new THREE.Mesh(new THREE.BoxGeometry(38, 9.0, 22), stationMat);
         station.position.set(450, 4.5, 20);
         this.scene.add(station);
         this.collisionBoxes.push(new THREE.Box3().setFromObject(station));
@@ -613,8 +626,9 @@
       }
 
       buildPrivateSector() {
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
+        const wallMat = this.textureEngine ? this.textureEngine.createWeatheredFacadeMaterial(0xe2e8f0, true) : new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
         const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c });
+
         for (let x = -380; x < -120; x += 55) {
           for (let z = 90; z < 320; z += 55) {
             const house = new THREE.Group();
@@ -684,7 +698,7 @@
     }
 
     // =========================================================================
-    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR С BOOTSTRAP)
+    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR C ПОДДЕРЖКОЙ ЧАСТИ 4)
     // =========================================================================
     class GorodnyaGameApp {
       constructor() {
@@ -726,7 +740,16 @@
 
       initSystems() {
         this.sound = new SoundEngine();
-        this.cityMap = new GorodnyaCityMap(this.scene);
+
+        // 1. Движок ультра-текстурирования и шейдеров (Часть 4)
+        this.textureEngine = new UltraTextureEngine(this.renderer);
+
+        // 2. Городня с фотореалистичными материалами
+        this.cityMap = new GorodnyaCityMap(this.scene, this.textureEngine);
+
+        // 3. Декали и микро-детали окружения (люки, решетки, знаки улиц)
+        this.decalScatter = new DecalScatterSystem(this.scene, this.textureEngine);
+
         this.particles = new ParticleSystem3D(this.scene);
         this.player = new CharacterController(this.scene, this.sound);
         this.tpCamera = new ThirdPersonCamera(this.camera, this.renderer.domElement);
@@ -734,7 +757,7 @@
         this.shopSystem = new ShopAndMissionSystem(this.scene, this.sound);
         this.radarHUD = new RadarAndHUD(document.getElementById('radar-canvas'));
 
-        // Инициализация расширений Части 3
+        // Инициализация систем Части 3 через Bootstrap
         GameBootstrap.initAll(this);
 
         this.input = { forward: false, backward: false, left: false, right: false, sprint: false, jump: false, handbrake: false };
@@ -755,7 +778,6 @@
 
           if (k === 'f' || k === 'e') this.toggleVehicleInteraction();
 
-          // Оружие 1-4
           if (['1', '2', '3', '4'].includes(e.key)) {
             this.combat.selectWeapon(parseInt(e.key), this.player.group);
             const wNames = { 1: '👊 КУЛАКИ', 2: '🏏 БИТА', 3: '🔫 ПІСТОЛЕТ', 4: '💥 АК-47' };
@@ -776,7 +798,6 @@
           }
         });
 
-        // Атака мышью на ЛКМ
         window.addEventListener('mousedown', e => {
           if (e.button === 0 && !this.player.inVehicle && document.getElementById('intro-overlay').style.display === 'none') {
             this.combat.attack(this.player, this.camera, this.particles, this.aiCity);
@@ -832,19 +853,16 @@
           const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
           lastTime = currentTime;
 
-          // Физика авто или персонаж
           if (this.activeVehiclePhysics) {
             this.activeVehiclePhysics.update(delta, this.input, 1.0, this.cityMap.collisionBoxes, this.particles);
             this.player.position.copy(this.activeVehiclePhysics.mesh.position);
 
-            // Закись азота (NOS) на Shift
             if (this.input.sprint) {
               this.tuning.triggerNitro(delta, this.activeVehiclePhysics, this.particles, this.camera);
             } else {
               this.tuning.stopNitro(delta, this.camera);
             }
 
-            // Проверка заезда в бокс СТО
             if (this.tuning.checkSTODriveIn(this.player.inVehicle) && !this.tuning.isMenuOpen) {
               this.tuning.openTuningMenu(this.activeVehiclePhysics);
             }
@@ -852,31 +870,26 @@
             this.player.update(delta, this.input, this.tpCamera.angleY, this.cityMap.collisionBoxes);
           }
 
-          // Проверка гибели игрока (Wasted)
           if (this.player.health <= 0) {
             this.combat.triggerWasted(this.player);
           }
 
-          // Умная камера
           const targetPos = this.player.inVehicle ? this.player.inVehicle.mesh.position : this.player.position;
           const spd = this.activeVehiclePhysics ? this.activeVehiclePhysics.speed : 0;
           this.tpCamera.update(delta, targetPos, spd, this.cityMap.collisionBoxes);
 
-          // Обновление AI, погоды, комбата и миссий
           this.aiCity.update(delta, this.player.position, this.player.wantedStars, this.particles);
           this.particles.update(delta);
           this.weather.update(delta, this.player.position);
           this.combat.update(delta, this.player, this.particles);
           this.shopSystem.update(delta, this.player);
 
-          // Магазины
           const activeShop = this.shopSystem.checkShopTriggers(this.player);
           if (activeShop && !this.player.inVehicle) {
             document.getElementById('shop-modal').style.display = 'block';
             document.getElementById('shop-title').innerText = activeShop.name;
           }
 
-          // Подсказка авто
           let nearCar = false;
           if (!this.player.inVehicle) {
             for (let v of this.cityMap.vehicles) {
@@ -887,7 +900,6 @@
           }
           document.getElementById('interaction-prompt').style.display = nearCar ? 'block' : 'none';
 
-          // Радар и HUD
           const heading = this.player.inVehicle ? this.activeVehiclePhysics.mesh.rotation.y : this.player.heading;
           this.radarHUD.drawRadar(this.player.position, heading, this.shopSystem.shops, this.shopSystem.currentMission, this.aiCity.policeCars);
           this.radarHUD.updateHUD(this.player, this.activeVehiclePhysics, this.shopSystem.currentMission);
