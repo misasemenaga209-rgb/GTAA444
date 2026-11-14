@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Городня 3D: Відкритий Світ (Gorodnya 3D Open World)</title>
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Ubuntu:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b0f19;
+      font-family: 'Ubuntu', sans-serif;
+      color: #fff;
+    }
+    #webgl-container {
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* TOP RIGHT HUD */
+    #hud-top-right {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      z-index: 20;
+    }
+    #hud-money {
+      font-family: 'Teko', sans-serif;
+      font-size: 34px;
+      color: #2ecc71;
+      text-shadow: 2px 2px 0 #000, 0 0 12px rgba(46, 204, 113, 0.5);
+      letter-spacing: 2px;
+    }
+    .hud-bar-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hud-bar-bg {
+      width: 170px;
+      height: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid #334155;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    #hud-hp-bar {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #e74c3c, #c0392b);
+      transition: width 0.15s ease-out;
+    }
+    #hud-stars {
+      font-size: 26px;
+      color: #f1c40f;
+      text-shadow: 0 0 10px #f39c12, 1px 1px 0 #000;
+      letter-spacing: 4px;
+    }
+    #hud-gps-district {
+      background: rgba(15, 23, 42, 0.8);
+      border-left: 4px solid #38bdf8;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #e2e8f0;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      margin-top: 4px;
+    }
+
+    /* BOTTOM LEFT RADAR */
+    #hud-bottom-left {
+      position: absolute;
+      bottom: 22px;
+      left: 22px;
+      z-index: 20;
+    }
+    #radar-canvas {
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.8);
+      background: #0f172a;
+    }
+
+    /* BOTTOM RIGHT SPEEDOMETER */
+    #hud-speedometer {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 2px solid #38bdf8;
+      border-radius: 8px;
+      padding: 10px 18px;
+      text-align: center;
+      z-index: 20;
+      display: none;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+    }
+    #hud-speed-value {
+      font-family: 'Teko', sans-serif;
+      font-size: 46px;
+      line-height: 1;
+      color: #fff;
+    }
+    .speed-unit {
+      font-size: 13px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
+
+    /* MISSION HUD */
+    #hud-mission-info {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 2px solid #f39c12;
+      border-radius: 6px;
+      padding: 10px 18px;
+      z-index: 20;
+      display: none;
+    }
+    #hud-mission-title {
+      font-weight: 700;
+      font-size: 16px;
+      color: #f39c12;
+    }
+    #hud-mission-timer {
+      font-size: 14px;
+      color: #fff;
+      margin-top: 4px;
+    }
+
+    /* PROMPTS & MODALS */
+    #interaction-prompt {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 2px solid #38bdf8;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 17px;
+      z-index: 25;
+      display: none;
+    }
+    kbd {
+      background: #334155;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #64748b;
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    /* SHOP MODAL */
+    #shop-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      border-radius: 10px;
+      padding: 24px;
+      width: 360px;
+      z-index: 50;
+      display: none;
+      box-shadow: 0 0 35px rgba(0, 0, 0, 0.9);
+    }
+    #shop-modal h2 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #38bdf8;
+      text-align: center;
+    }
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+    }
+    .shop-item button {
+      background: #0284c7;
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #shop-close-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 8px;
+      background: #475569;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* INTRO OVERLAY */
+    #intro-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(11, 15, 25, 0.94);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .intro-card {
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      padding: 32px 40px;
+      border-radius: 12px;
+      max-width: 620px;
+      text-align: center;
+      box-shadow: 0 0 45px rgba(56, 189, 248, 0.3);
+    }
+    .intro-card h1 {
+      font-family: 'Teko', sans-serif;
+      font-size: 58px;
+      color: #38bdf8;
+      line-height: 1;
+      letter-spacing: 2px;
+    }
+    .intro-card p {
+      color: #94a3b8;
+      margin: 12px 0 20px 0;
+      font-size: 15px;
+    }
+    .controls-table {
+      text-align: left;
+      font-size: 14px;
+      margin-bottom: 24px;
+      background: #0f172a;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .controls-table div {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 4px;
+    }
+    .start-btn {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border: none;
+      color: #fff;
+      font-family: 'Teko', sans-serif;
+      font-size: 32px;
+      padding: 8px 36px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-container"></div>
+
+  <!-- HUD -->
+  <div id="hud-top-right">
+    <div id="hud-money">1,250 ₴</div>
+    <div class="hud-bar-wrapper">
+      <div class="hud-bar-bg"><div id="hud-hp-bar"></div></div>
+    </div>
+    <div id="hud-stars">☆☆☆☆☆</div>
+    <div id="hud-gps-district">Центр Городні</div>
+  </div>
+
+  <div id="hud-bottom-left">
+    <canvas id="radar-canvas" width="180" height="180"></canvas>
+  </div>
+
+  <div id="hud-speedometer">
+    <div id="hud-speed-value">0</div>
+    <div class="speed-unit">КМ/ГОД</div>
+  </div>
+
+  <div id="hud-mission-info">
+    <div id="hud-mission-title">Місія</div>
+    <div id="hud-mission-timer">Час: 90с</div>
+  </div>
+
+  <div id="interaction-prompt">
+    Натисніть <kbd>F</kbd> або <kbd>E</kbd>
+  </div>
+
+  <!-- SHOP MODAL -->
+  <div id="shop-modal">
+    <h2 id="shop-title">Магазин</h2>
+    <div class="shop-item">
+      <span>🌭 Хот-дог (+35 HP)</span>
+      <button onclick="window.gameApp.buyShopItem('hotdog')">45 ₴</button>
+    </div>
+    <div class="shop-item">
+      <span>☕ Кава Американо (+15 HP)</span>
+      <button onclick="window.gameApp.buyShopItem('coffee')">25 ₴</button>
+    </div>
+    <div class="shop-item">
+      <span>💊 Аптечка (+100 HP)</span>
+      <button onclick="window.gameApp.buyShopItem('medkit')">120 ₴</button>
+    </div>
+    <button id="shop-close-btn" onclick="window.gameApp.closeShop()">Закрити</button>
+  </div>
+
+  <!-- INTRO SCREEN -->
+  <div id="intro-overlay">
+    <div class="intro-card">
+      <h1>ГОРОДНЯ 3D</h1>
+      <p>Відкритий світ Чернігівської області: вул. Шевченка, Чернігівська, АТБ, Базар, Нова Пошта, Вокзал та військовий Аеродром.</p>
+      <div class="controls-table">
+        <div><span>Керування пішки:</span> <b>W, A, S, D / Стрілки</b></div>
+        <div><span>Біг (спринт) / Ручник:</span> <b>Shift / Space</b></div>
+        <div><span>Стрибок:</span> <b>Space</b></div>
+        <div><span>Огляд камерою:</span> <b>Затиснути ліву кнопку миші</b></div>
+        <div><span>Сісти / Вийти з авто:</span> <b>F</b> або <b>E</b></div>
+        <div><span>Меню місій (телефон):</span> <b>P</b></div>
+      </div>
+      <button class="start-btn" id="start-game-btn">РОЗПОЧАТИ ГРУ</button>
+    </div>
+  </div>
+
+  <!-- СКРИПТ ЧАСТИ 2 -->
+  <script src="gorodnya_part2.js"></script>
+
+  <!-- СКРИПТ ЧАСТИ 1 (КАРТА ГОРОДНИ) И ОБЩИЙ ЦИКЛ ИГРЫ -->
+  <script>
+    class GorodnyaCityMap {
+      constructor(scene) {
+        this.scene = scene;
+        this.collisionBoxes = [];
+        this.vehicles = [];
+
+        this.buildEnvironment();
+        this.buildRoads();
+        this.buildLandmarks();
+        this.buildPrivateSector();
+        this.buildDendropark();
+        this.spawnInitialFleet();
+      }
+
+      buildEnvironment() {
+        // Рельеф / Земля
+        const groundGeo = new THREE.PlaneGeometry(1600, 1600);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x223524 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+
+        // Река Смяч
+        const riverGeo = new THREE.PlaneGeometry(1200, 42);
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.6 });
+        const river = new THREE.Mesh(riverGeo, waterMat);
+        river.rotation.x = -Math.PI / 2;
+        river.position.set(0, 0.05, -220);
+        this.scene.add(river);
+
+        // Озеро Делдачков
+        const lakeGeo = new THREE.CircleGeometry(65, 32);
+        const lake = new THREE.Mesh(lakeGeo, waterMat);
+        lake.rotation.x = -Math.PI / 2;
+        lake.position.set(-280, 0.06, -300);
+        this.scene.add(lake);
+      }
+
+      buildRoads() {
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+        const concreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.9 }); // Плиты ПАГ-14
+
+        // 1. ул. Черниговская (Север - Юг)
+        const cherGeo = new THREE.PlaneGeometry(18, 1100);
+        const cherRoad = new THREE.Mesh(cherGeo, roadMat);
+        cherRoad.rotation.x = -Math.PI / 2;
+        cherRoad.position.set(0, 0.08, 0);
+        this.scene.add(cherRoad);
+
+        // 2. ул. Шевченко (Запад - Восток)
+        const shevGeo = new THREE.PlaneGeometry(1100, 18);
+        const shevRoad = new THREE.Mesh(shevGeo, roadMat);
+        shevRoad.rotation.x = -Math.PI / 2;
+        shevRoad.position.set(0, 0.09, 0);
+        this.scene.add(shevRoad);
+
+        // 3. Военный Аэродром Городни: Бетонная взлетная полоса из плит ПАГ-14
+        const runwayGeo = new THREE.PlaneGeometry(36, 680);
+        const runway = new THREE.Mesh(runwayGeo, concreteMat);
+        runway.rotation.x = -Math.PI / 2;
+        runway.position.set(340, 0.1, -400);
+        this.scene.add(runway);
+      }
+
+      buildLandmarks() {
+        // 1. СУПЕРМАРКЕТ АТБ (ул. Черниговская)
+        const atbGroup = new THREE.Group();
+        const atbMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+        const atbBody = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 24), atbMat);
+        atbBody.position.set(0, 3.75, -180);
+        atbBody.castShadow = true;
+        atbGroup.add(atbBody);
+
+        // Синяя вывеска АТБ
+        const atbSign = new THREE.Mesh(new THREE.BoxGeometry(16, 2.8, 1.2), new THREE.MeshBasicMaterial({ color: 0x0284c7 }));
+        atbSign.position.set(0, 6.2, -167.5);
+        atbGroup.add(atbSign);
+        this.scene.add(atbGroup);
+        this.collisionBoxes.push(new THREE.Box3().setFromObject(atbBody));
+
+        // 2. МАГАЗИН «АВРОРА» (ул. 1-го Мая)
+        const avrBody = new THREE.Mesh(new THREE.BoxGeometry(22, 6.0, 16), new THREE.MeshStandardMaterial({ color: 0xf1c40f }));
+        avrBody.position.set(-90, 3.0, -80);
+        this.scene.add(avrBody);
+        this.collisionBoxes.push(new THREE.Box3().setFromObject(avrBody));
+
+        // 3. ЦЕНТРАЛЬНЫЙ РЫНОК (БАЗАР)
+        const marketMat = new THREE.MeshStandardMaterial({ color: 0xd97706 });
+        for (let i = 0; i < 4; i++) {
+          const stall = new THREE.Mesh(new THREE.BoxGeometry(24, 3.6, 6), marketMat);
+          stall.position.set(-220, 1.8, 20 + i * 16);
+          this.scene.add(stall);
+          this.collisionBoxes.push(new THREE.Box3().setFromObject(stall));
+        }
+
+        // 4. ОТДЕЛЕНИЕ «НОВА ПОШТА» №2
+        const npBody = new THREE.Mesh(new THREE.BoxGeometry(20, 6.0, 18), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+        npBody.position.set(-180, 3.0, -140);
+        this.scene.add(npBody);
+        this.collisionBoxes.push(new THREE.Box3().setFromObject(npBody));
+
+        // 5. Ж/Д ВОКЗАЛ «ГОРОДНЯ»
+        const station = new THREE.Mesh(new THREE.BoxGeometry(38, 9.0, 22), new THREE.MeshStandardMaterial({ color: 0xb45309 }));
+        station.position.set(450, 4.5, 20);
+        this.scene.add(station);
+        this.collisionBoxes.push(new THREE.Box3().setFromObject(station));
+      }
+
+      buildPrivateSector() {
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c });
+
+        // Генерация кварталов частного сектора
+        for (let x = -380; x < -120; x += 55) {
+          for (let z = 90; z < 320; z += 55) {
+            const house = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(11, 4.2, 9), wallMat);
+            body.position.y = 2.1;
+            house.add(body);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(8.5, 3.4, 4), roofMat);
+            roof.position.y = 5.8;
+            roof.rotation.y = Math.PI / 4;
+            house.add(roof);
+
+            house.position.set(x, 0, z);
+            this.scene.add(house);
+            this.collisionBoxes.push(new THREE.Box3().setFromObject(body));
+          }
+        }
+      }
+
+      buildDendropark() {
+        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+        const foliageMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+
+        // Сосновые и дубовые аллеи Дендропарка
+        for (let i = 0; i < 55; i++) {
+          const tree = new THREE.Group();
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 4.5, 6), trunkMat);
+          trunk.position.y = 2.25;
+          tree.add(trunk);
+          const foliage = new THREE.Mesh(new THREE.ConeGeometry(2.4, 5.5, 6), foliageMat);
+          foliage.position.y = 5.8;
+          tree.add(foliage);
+
+          const tx = 60 + Math.random() * 220;
+          const tz = 70 + Math.random() * 220;
+          tree.position.set(tx, 0, tz);
+          this.scene.add(tree);
+          this.collisionBoxes.push(new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(tx, 2, tz), new THREE.Vector3(1.2, 5, 1.2)));
+        }
+      }
+
+      spawnInitialFleet() {
+        // Размещение 6 уникальных машин Городни
+        // 1. ВАЗ-2101 «Жигули» у Базара
+        const vaz = VehicleFactory.createVAZ2101();
+        vaz.position.set(-185, 0, 15);
+        this.scene.add(vaz);
+        this.vehicles.push({ mesh: vaz, type: 'vaz' });
+
+        // 2. Daewoo Lanos на парковке АТБ
+        const lanos = VehicleFactory.createDaewooLanos();
+        lanos.position.set(16, 0, -170);
+        this.scene.add(lanos);
+        this.vehicles.push({ mesh: lanos, type: 'lanos' });
+
+        // 3. Фургон «Нова Пошта» у отделения №2
+        const npVan = VehicleFactory.createNovaPoshtaVan();
+        npVan.position.set(-165, 0, -135);
+        this.scene.add(npVan);
+        this.vehicles.push({ mesh: npVan, type: 'np' });
+
+        // 4. Автобус «Городня — Чернигов» на перекрестке
+        const bus = VehicleFactory.createGorodnyaBus();
+        bus.position.set(-14, 0, 30);
+        this.scene.add(bus);
+        this.vehicles.push({ mesh: bus, type: 'bus' });
+
+        // 5. Драг-купе на Аэродроме
+        const drag = VehicleFactory.createDragCoupe();
+        drag.position.set(340, 0, -220);
+        this.scene.add(drag);
+        this.vehicles.push({ mesh: drag, type: 'drag' });
+
+        // 6. Патруль Полиции у Горсовета
+        const police = VehicleFactory.createPoliceCar();
+        police.position.set(-18, 0, -45);
+        this.scene.add(police);
+        this.vehicles.push({ mesh: police, type: 'police' });
+      }
+    }
+
+    // =========================================================================
+    // ГЛАВНОЕ ПРИЛОЖЕНИЕ (ORCHESTRATOR)
+    // =========================================================================
+    class GorodnyaGameApp {
+      constructor() {
+        this.container = document.getElementById('webgl-container');
+        this.initThree();
+        this.initSystems();
+        this.setupInputListeners();
+        this.activeVehiclePhysics = null;
+
+        window.gameApp = this;
+      }
+
+      initThree() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0b0f19);
+        this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.0022);
+
+        this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 1800);
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.container.appendChild(this.renderer.domElement);
+
+        // Освещение (Солнечный свет + Атмосфера)
+        const sun = new THREE.DirectionalLight(0xfffaed, 1.4);
+        sun.position.set(150, 220, 100);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 10;
+        sun.shadow.camera.far = 600;
+        sun.shadow.camera.left = -300;
+        sun.shadow.camera.right = 300;
+        sun.shadow.camera.top = 300;
+        sun.shadow.camera.bottom = -300;
+        this.scene.add(sun);
+
+        const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x1e293b, 0.65);
+        this.scene.add(hemiLight);
+
+        window.addEventListener('resize', () => {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+      }
+
+      initSystems() {
+        this.sound = new SoundEngine();
+        this.cityMap = new GorodnyaCityMap(this.scene);
+        this.particles = new ParticleSystem3D(this.scene);
+        this.player = new CharacterController(this.scene, this.sound);
+        this.tpCamera = new ThirdPersonCamera(this.camera, this.renderer.domElement);
+        this.aiCity = new LivingCityAI(this.scene, this.cityMap.collisionBoxes, this.sound);
+        this.shopSystem = new ShopAndMissionSystem(this.scene, this.sound);
+        this.radarHUD = new RadarAndHUD(document.getElementById('radar-canvas'));
+
+        this.input = { forward: false, backward: false, left: false, right: false, sprint: false, jump: false, handbrake: false };
+      }
+
+      setupInputListeners() {
+        window.addEventListener('keydown', e => {
+          const k = e.key.toLowerCase();
+          if (k === 'w' || e.key === 'ArrowUp') this.input.forward = true;
+          if (k === 's' || e.key === 'ArrowDown') this.input.backward = true;
+          if (k === 'a' || e.key === 'ArrowLeft') this.input.left = true;
+          if (k === 'd' || e.key === 'ArrowRight') this.input.right = true;
+          if (e.key === 'Shift') this.input.sprint = true;
+          if (e.key === ' ') {
+            this.input.jump = true;
+            this.input.handbrake = true;
+          }
+
+          // Посадка/Выход из авто [F] или [E]
+          if (k === 'f' || k === 'e') {
+            this.toggleVehicleInteraction();
+          }
+
+          // Телефон миссий [P]
+          if (k === 'p') {
+            this.openMissionSelect();
+          }
+        });
+
+        window.addEventListener('keyup', e => {
+          const k = e.key.toLowerCase();
+          if (k === 'w' || e.key === 'ArrowUp') this.input.forward = false;
+          if (k === 's' || e.key === 'ArrowDown') this.input.backward = false;
+          if (k === 'a' || e.key === 'ArrowLeft') this.input.left = false;
+          if (k === 'd' || e.key === 'ArrowRight') this.input.right = false;
+          if (e.key === 'Shift') this.input.sprint = false;
+          if (e.key === ' ') {
+            this.input.jump = false;
+            this.input.handbrake = false;
+          }
+        });
+
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+          this.sound.init();
+          document.getElementById('intro-overlay').style.display = 'none';
+        });
+      }
+
+      toggleVehicleInteraction() {
+        if (this.player.inVehicle) {
+          // Выход из машины
+          const vMesh = this.player.inVehicle.mesh;
+          this.player.position.set(vMesh.position.x + 2.2, 0, vMesh.position.z);
+          this.player.inVehicle = null;
+          this.activeVehiclePhysics = null;
+          this.sound.stopEngine();
+          this.sound.setDriftSkid(0);
+          document.getElementById('interaction-prompt').style.display = 'none';
+        } else {
+          // Поиск ближайшей машины в радиусе 3.8м
+          for (let v of this.cityMap.vehicles) {
+            if (this.player.position.distanceTo(v.mesh.position) < 3.8) {
+              this.activeVehiclePhysics = new VehiclePhysics(v.mesh, v.type, this.sound);
+              this.player.inVehicle = { mesh: v.mesh, physics: this.activeVehiclePhysics };
+              break;
+            }
+          }
+        }
+      }
+
+      openMissionSelect() {
+        const choice = prompt("Оберіть місію Городні:\n1 - Експрес з Нової Пошти (до Вокзалу)\n2 - Король злітки (Драг на Аеродромі)\n3 - Каса Центрального ринку (Погоня 3 зірки!)");
+        const id = parseInt(choice);
+        if (id >= 1 && id <= 3) {
+          this.shopSystem.startMission(id, this.player);
+        }
+      }
+
+      buyShopItem(id) {
+        if (this.shopSystem.buyItem(this.player, id)) {
+          alert('Покупка здійснена успішно!');
+        } else {
+          alert('Недостатньо гривень!');
+        }
+      }
+
+      closeShop() {
+        document.getElementById('shop-modal').style.display = 'none';
+      }
+
+      start() {
+        let lastTime = performance.now();
+
+        const animate = (currentTime) => {
+          requestAnimationFrame(animate);
+          const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
+          lastTime = currentTime;
+
+          // 1. Физика транспорта или движение игрока
+          if (this.activeVehiclePhysics) {
+            this.activeVehiclePhysics.update(delta, this.input, 1.0, this.cityMap.collisionBoxes, this.particles);
+            this.player.position.copy(this.activeVehiclePhysics.mesh.position);
+          } else {
+            this.player.update(delta, this.input, this.tpCamera.angleY, this.cityMap.collisionBoxes);
+          }
+
+          // 2. Умная камера
+          const targetPos = this.player.inVehicle ? this.player.inVehicle.mesh.position : this.player.position;
+          const spd = this.activeVehiclePhysics ? this.activeVehiclePhysics.speed : 0;
+          this.tpCamera.update(delta, targetPos, spd, this.cityMap.collisionBoxes);
+
+          // 3. AI, частицы, магазины и миссии
+          this.aiCity.update(delta, this.player.position, this.player.wantedStars, this.particles);
+          this.particles.update(delta);
+          this.shopSystem.update(delta, this.player);
+
+          // Проверка входа в магазины Городни
+          const activeShop = this.shopSystem.checkShopTriggers(this.player);
+          if (activeShop && !this.player.inVehicle) {
+            document.getElementById('shop-modal').style.display = 'block';
+            document.getElementById('shop-title').innerText = activeShop.name;
+          }
+
+          // Подсказка сесть в авто
+          let nearCar = false;
+          if (!this.player.inVehicle) {
+            for (let v of this.cityMap.vehicles) {
+              if (this.player.position.distanceTo(v.mesh.position) < 3.8) {
+                nearCar = true;
+                break;
+              }
+            }
+          }
+          document.getElementById('interaction-prompt').style.display = nearCar ? 'block' : 'none';
+
+          // 4. Отрисовка радара и обновление HUD
+          const heading = this.player.inVehicle ? this.activeVehiclePhysics.mesh.rotation.y : this.player.heading;
+          this.radarHUD.drawRadar(this.player.position, heading, this.shopSystem.shops, this.shopSystem.currentMission, this.aiCity.policeCars);
+          this.radarHUD.updateHUD(this.player, this.activeVehiclePhysics, this.shopSystem.currentMission);
+
+          this.renderer.render(this.scene, this.camera);
+        };
+
+        requestAnimationFrame(animate);
+      }
+    }
+
+    // Запуск игры
+    window.addEventListener('DOMContentLoaded', () => {
+      const app = new GorodnyaGameApp();
+      app.start();
+    });
+  </script>
+</body>
+</html>
